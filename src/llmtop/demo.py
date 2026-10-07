@@ -54,11 +54,11 @@ class DemoMonitor(Monitor):
         decode = decode_per_stream * max(streams, 1)
         prefill = prefill_per_stream * max(streams, 1)
         decode_history = [
-            max(4.0, 42.0 + 18.0 * math.sin(phase - step / 4.0)) * max(streams, 1)
+            max(4.0, 42.0 + 18.0 * math.sin(phase - step / 4.0))
             for step in range(40, 0, -1)
         ]
         prefill_history = [
-            max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0 - step / 12.0)) * max(streams, 1)
+            max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0 - step / 12.0))
             for step in range(40, 0, -1)
         ]
         return EngineState(
@@ -73,12 +73,12 @@ class DemoMonitor(Monitor):
             waiting=random.randint(0, 1),
             kv_usage=min(0.95, 0.35 + 0.2 * math.sin(phase / 2.0)),
             context_limit=393216,
-            prefill_now=prefill,
-            decode_now=decode,
-            prefill_headline=prefill * random.uniform(0.9, 1.05),
-            decode_headline=decode * random.uniform(0.92, 1.04),
-            prefill_per_stream=prefill_per_stream,
-            decode_per_stream=decode_per_stream,
+            prefill_now=prefill_per_stream,
+            decode_now=decode_per_stream,
+            prefill_headline=prefill_per_stream * random.uniform(0.9, 1.05),
+            decode_headline=decode_per_stream * random.uniform(0.92, 1.04),
+            prefill_total=prefill,
+            decode_total=decode,
             ttft_ms=random.uniform(120.0, 900.0),
             spec_accept=random.uniform(0.5, 0.8),
             active_slots=1 if random.random() < 0.7 else 0,

@@ -23,8 +23,8 @@ class EngineState:
     decode_now: float = 0.0
     prefill_headline: float = 0.0
     decode_headline: float = 0.0
-    prefill_per_stream: float = 0.0
-    decode_per_stream: float = 0.0
+    prefill_total: float = 0.0
+    decode_total: float = 0.0
     ttft_ms: float | None = None
     spec_accept: float | None = None
     active_slots: int = 0
