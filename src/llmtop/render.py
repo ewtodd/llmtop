@@ -146,7 +146,7 @@ def engine_card_renderable(state: EngineState, width: int = 100, headline_interv
 
 def _big_column(label: str, value: float, headline_interval: float) -> list[Text]:
     lines = big_number_lines(headline_number(value))
-    lines.append(Text(f"{label} {window_label(headline_interval)}", style="dim"))
+    lines.append(Text(f"{label} {window_label(headline_interval)} tot", style="dim"))
     return lines
 
 
@@ -176,6 +176,10 @@ def _stats_line(state: EngineState) -> Text:
     text = Text()
     text.append("ttft ", style="dim")
     text.append(format_ms(state.ttft_ms), style="")
+    text.append("   per stream ", style="dim")
+    text.append(f"pf {format_rate(state.prefill_per_stream)}", style="magenta")
+    text.append(" ")
+    text.append(f"dec {format_rate(state.decode_per_stream)}", style="bold cyan")
     return text
 
 
@@ -191,9 +195,10 @@ def _detail_line(state: EngineState) -> Text:
         text.append(f"{state.active_slots}/{state.total_slots}", style="")
     else:
         text.append("n/a", style="dim")
-    text.append(f"   requests {state.running} run", style="dim")
+    text.append("   streams ", style="dim")
+    text.append(str(state.running), style="")
     if state.waiting:
-        text.append(f" {state.waiting} wait", style="bold yellow")
+        text.append(f"  +{state.waiting} wait", style="bold yellow")
     return text
 
 

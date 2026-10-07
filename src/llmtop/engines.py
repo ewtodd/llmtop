@@ -256,12 +256,23 @@ class EngineRunner:
             # Back-to-back polls (forced refresh racing the timer) would divide
             # by a near-zero interval and produce absurd spikes.
             if elapsed >= 0.05:
-                state.prefill_now = max(reading.prefill_tokens - previous.prefill_tokens, 0.0) / elapsed
-                state.decode_now = max(reading.output_tokens - previous.output_tokens, 0.0) / elapsed
+                # Aggregate throughput: computed tokens (vLLM prompt cache
+                # hits are not work) produced per wall-clock second across all
+                # concurrent requests.
+                state.prefill_now = _wall_rate(
+                    reading.prefill_compute_tokens - previous.prefill_compute_tokens,
+                    elapsed,
+                )
+                state.decode_now = _wall_rate(
+                    reading.output_tokens - previous.output_tokens,
+                    elapsed,
+                )
 
         self._update_headline(reading)
         state.prefill_headline = self._headline["prefill"] or 0.0
         state.decode_headline = self._headline["decode"] or 0.0
+        state.prefill_per_stream = self._headline["prefill_per_stream"] or 0.0
+        state.decode_per_stream = self._headline["decode_per_stream"] or 0.0
         state.ttft_ms = self._headline["ttft_ms"]
         state.spec_accept = self._headline["spec_accept"]
         return state
@@ -280,14 +291,20 @@ class EngineRunner:
         )
         if accept is None:
             accept = _ratio(reading.spec_accepted_tokens, reading.spec_draft_tokens)
+        prefill_tokens = reading.prefill_compute_tokens - previous.prefill_compute_tokens
+        decode_tokens = reading.output_tokens - previous.output_tokens
         self._headline = {
-            "prefill": _average_rate(
-                reading.prefill_compute_tokens - previous.prefill_compute_tokens,
+            "prefill": _wall_rate(prefill_tokens, elapsed),
+            "decode": _wall_rate(decode_tokens, elapsed),
+            # Per-stream: each request's own processing time, so concurrent
+            # streams don't inflate the speed a single request sees.
+            "prefill_per_stream": _average_rate(
+                prefill_tokens,
                 reading.prefill_seconds - previous.prefill_seconds,
                 elapsed,
             ),
-            "decode": _average_rate(
-                reading.output_tokens - previous.output_tokens,
+            "decode_per_stream": _average_rate(
+                decode_tokens,
                 reading.output_seconds - previous.output_seconds,
                 elapsed,
             ),
@@ -297,7 +314,14 @@ class EngineRunner:
         self._headline_reading = reading
 
     def _empty_headline(self) -> dict[str, float | None]:
-        return { "prefill": 0.0, "decode": 0.0, "ttft_ms": None, "spec_accept": None }
+        return {
+            "prefill": 0.0,
+            "decode": 0.0,
+            "prefill_per_stream": 0.0,
+            "decode_per_stream": 0.0,
+            "ttft_ms": None,
+            "spec_accept": None,
+        }
 
     def _record_history(self, now: float, state: EngineState) -> None:
         cutoff = now - self.history_seconds
@@ -338,6 +362,14 @@ def _reading_is_finite(reading: EngineReading) -> bool:
     if any(not math.isfinite(value) for value in counters):
         return False
     return all(value is None or math.isfinite(value) for value in optional)
+
+
+def _wall_rate(tokens: float, wall_seconds: float) -> float:
+    if not math.isfinite(tokens) or tokens < 0:
+        return 0.0
+    if not math.isfinite(wall_seconds) or wall_seconds <= 0:
+        return 0.0
+    return tokens / wall_seconds
 
 
 def _average_rate(tokens: float, seconds: float, wall_seconds: float) -> float:

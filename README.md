@@ -17,12 +17,12 @@ derived from the terminal the same way (see below).
 
 ```
  ╭─ qwen3.8-27b (vLLM) ─────────────────────────────────────────────────────────╮
- │ █ █ █ █ ███     ███ ███    ███    PREFILL ██████████████████████░░   452     │
- │ █ █ █ █ █ █     █   █ █    █      DECODE  ████████████████████████  51.7     │
+ │ █ █ █ █ ███     ███ ███    ███    PREFILL ██████████████████████░░   1.2k    │
+ │ █ █ █ █ █ █     █   █ █    █      DECODE  ████████████████████████   124     │
  │ ███ ███ ███     ███ █ █    ███    KV      ██████████░░░░░░░░░░░░░░   40%     │
- │   █   █ █ █       █ █ █      █    ttft 626ms                                  │
- │   █   █ ███     ███ ███ █  ███    spec 51%  slots 1/2  requests 2 run 1 wait  │
- │ prefill 3s avg  decode 3s avg                                                 │
+ │   █   █ █ █       █ █ █      █    ttft 180ms   per stream pf 413 dec 41.3   │
+ │   █   █ ███     ███ ███ █  ███    spec 61%   slots 2/2   streams 3 +1 wait  │
+ │ prefill 1s tot      decode 1s tot                                             │
  ╰─────────────────────── qwen3.8-27b  ·  run 3 wait 1 ─────────────────────────╯
  Key         App           Req Live Fail Prefill Decode ...
  opencode    opencode       36    0    0     105     9.8
@@ -32,13 +32,16 @@ derived from the terminal the same way (see below).
 
 ## The display
 
-- One card per engine with **two large numbers: prefill first, decode second**.
-  Each is the instantaneous rate over the last `headline_interval_seconds`
-  (default 3 s; the label shows it), re-sampled on that cadence and held in
-  between. Rates use per-request compute time rather than wall time.
-- Next to them: absolute live PREFILL / DECODE / KV-cache bars, then `ttft`
-  and `spec` / `slots` / `requests`. Speculative-decode acceptance and TTFT
-  are re-sampled on the same interval, not averaged over the process lifetime.
+- One card per engine with **two large numbers: aggregate prefill first,
+  aggregate decode second**. Aggregates count every concurrent request, use
+  tokens actually processed (vLLM prompt-cache hits are not work), and are
+  re-sampled over `headline_interval_seconds` and held in between.
+- Next to them: the same aggregate metric as live PREFILL / DECODE bars, the
+  KV-cache bar, and explicitly `per stream pf / dec` rates — the speed a
+  single request sees — plus `streams N` so it is clear how much concurrency
+  the aggregate covers. `ttft`, `spec` and `slots` round out the card;
+  speculative-decode acceptance and TTFT are re-sampled on the headline
+  interval, not averaged over the process lifetime.
 - Colors follow the reference nvtop-style layout: decode cyan, prefill
   magenta, KV green/yellow/red at the usual thresholds.
 - Everything is laid out as fixed-width lines, so narrow terminals truncate

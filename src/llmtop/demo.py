@@ -48,14 +48,17 @@ class DemoMonitor(Monitor):
 
     def _engine(self, engine_id: str, name: str, index: int) -> EngineState:
         phase = self._tick / 4.0 + index
-        decode = max(8.0, 42.0 + 18.0 * math.sin(phase) + random.uniform(-4.0, 4.0))
-        prefill = max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0) + random.uniform(-30.0, 30.0))
+        streams = random.randint(0, 3)
+        decode_per_stream = max(8.0, 42.0 + 18.0 * math.sin(phase) + random.uniform(-4.0, 4.0))
+        prefill_per_stream = max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0) + random.uniform(-30.0, 30.0))
+        decode = decode_per_stream * max(streams, 1)
+        prefill = prefill_per_stream * max(streams, 1)
         decode_history = [
-            max(4.0, 42.0 + 18.0 * math.sin(phase - step / 4.0))
+            max(4.0, 42.0 + 18.0 * math.sin(phase - step / 4.0)) * max(streams, 1)
             for step in range(40, 0, -1)
         ]
         prefill_history = [
-            max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0 - step / 12.0))
+            max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0 - step / 12.0)) * max(streams, 1)
             for step in range(40, 0, -1)
         ]
         return EngineState(
@@ -66,7 +69,7 @@ class DemoMonitor(Monitor):
             url="demo://",
             ok=True,
             models=[DEMO_MODELS[index % len(DEMO_MODELS)]],
-            running=random.randint(0, 3),
+            running=streams,
             waiting=random.randint(0, 1),
             kv_usage=min(0.95, 0.35 + 0.2 * math.sin(phase / 2.0)),
             context_limit=393216,
@@ -74,6 +77,8 @@ class DemoMonitor(Monitor):
             decode_now=decode,
             prefill_headline=prefill * random.uniform(0.9, 1.05),
             decode_headline=decode * random.uniform(0.92, 1.04),
+            prefill_per_stream=prefill_per_stream,
+            decode_per_stream=decode_per_stream,
             ttft_ms=random.uniform(120.0, 900.0),
             spec_accept=random.uniform(0.5, 0.8),
             active_slots=1 if random.random() < 0.7 else 0,

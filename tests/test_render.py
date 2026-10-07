@@ -29,6 +29,8 @@ def _state(**overrides) -> EngineState:
         decode_now=40.0,
         prefill_now=420.0,
         prefill_headline=410.0,
+        prefill_per_stream=205.0,
+        decode_per_stream=21.8,
         kv_usage=0.4,
         ttft_ms=150.0,
         spec_accept=0.55,
@@ -59,10 +61,18 @@ def test_headline_number_matches_reference_format():
 def test_card_label_shows_headline_interval():
     card = engine_card_renderable(_state(), width=100, headline_interval=3.0)
     label = card.renderables[-1].plain
-    assert "prefill 3s" in label
-    assert "decode 3s" in label
+    assert "prefill 3s tot" in label
+    assert "decode 3s tot" in label
     card = engine_card_renderable(_state(), width=100, headline_interval=120.0)
-    assert "prefill 2m" in card.renderables[-1].plain
+    assert "prefill 2m tot" in card.renderables[-1].plain
+
+
+def test_card_shows_per_stream_rates():
+    card = engine_card_renderable(_state(), width=110)
+    text = "".join(line.plain for line in card.renderables)
+    assert "per stream" in text
+    assert "pf 205" in text
+    assert "dec 21.8" in text
 
 
 def test_card_columns_stable_across_prefill_magnitudes():

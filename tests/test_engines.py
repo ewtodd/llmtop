@@ -44,6 +44,7 @@ def test_instant_rates_and_headline_sampling(monkeypatch):
     assert first.prefill_headline == 0.0
 
     second = runner.poll()
+    # Aggregate wall rates between polls.
     assert second.prefill_now == pytest.approx(100.0)
     assert second.decode_now == pytest.approx(20.0)
     # 2s since the headline reference: not sampled yet.
@@ -53,14 +54,33 @@ def test_instant_rates_and_headline_sampling(monkeypatch):
     third = runner.poll()
     assert third.prefill_now == pytest.approx(50.0)
     assert third.decode_now == pytest.approx(15.0)
-    # Sampled at 100..106: compute-time rates, not wall-time averages.
-    assert third.prefill_headline == pytest.approx(200.0)
-    assert third.decode_headline == pytest.approx(50.0)
+    # Sampled at 100..106: aggregate over wall, per-stream over compute time.
+    assert third.prefill_headline == pytest.approx(400 / 6)
+    assert third.decode_headline == pytest.approx(100 / 6)
+    assert third.prefill_per_stream == pytest.approx(200.0)
+    assert third.decode_per_stream == pytest.approx(50.0)
 
     fourth = runner.poll()
-    assert fourth.prefill_headline == pytest.approx(200.0)
-    assert fourth.decode_headline == pytest.approx(50.0)
+    assert fourth.prefill_headline == pytest.approx(400 / 6)
+    assert fourth.decode_per_stream == pytest.approx(50.0)
     assert len(fourth.decode_history) == 4
+
+
+def test_prefill_excludes_cache_hits(monkeypatch):
+    runner = _runner(
+        monkeypatch,
+        [
+            _reading(100.0),
+            _reading(101.0, prompt=1000.0, compute=200.0, psec=0.5),
+        ],
+        headline_interval=1.0,
+    )
+    runner.poll()
+    state = runner.poll()
+    # 1000 raw prompt tokens, 800 of them cache hits: 200 real tokens/s.
+    assert state.prefill_now == pytest.approx(200.0)
+    assert state.prefill_headline == pytest.approx(200.0)
+    assert state.prefill_per_stream == pytest.approx(400.0)
 
 
 def test_counter_reset_resets_headline(monkeypatch):
