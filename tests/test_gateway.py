@@ -3,7 +3,7 @@ import json
 import pytest
 
 from llmtop.config import GatewayConfig
-from llmtop.gateway import BifrostClient, GatewayError, _parse_journal_line
+from llmtop.gateway import BifrostClient, GatewayError, JournalEntry, JournalIPSource, _parse_journal_line
 
 
 def test_parse_journal_line():
@@ -82,6 +82,17 @@ def test_fetch_logs_parses_response(monkeypatch: pytest.MonkeyPatch):
     assert logs == [ { "id": "a" } ]
     assert "limit=5" in calls["url"]
     assert calls["auth"].startswith("Basic ")
+
+
+def test_lookup_by_features_prefers_closest_match():
+    source = JournalIPSource(GatewayConfig())
+    older = JournalEntry("a", 100.0, "10.0.0.4", "", "ua", 200, 1.0)
+    newer = JournalEntry("b", 130.0, "10.0.0.5", "", "ua", 200, 1.0)
+    source._recent.extend([ older, newer ])
+    assert source.lookup_by_features("ua", 105.0, tolerance=20.0) is older
+    assert source.lookup_by_features("ua", 125.0, tolerance=20.0) is newer
+    assert source.lookup_by_features("ua", 200.0, tolerance=20.0) is None
+    assert source.lookup_by_features("different-ua", 105.0) is None
 
 
 def test_health_is_unauthenticated(monkeypatch: pytest.MonkeyPatch):

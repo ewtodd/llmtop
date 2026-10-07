@@ -71,7 +71,10 @@ class OriginTracker:
             if event is None:
                 continue
             if journal is not None:
-                apply_journal(event, journal.lookup(event.request_id), host_map)
+                entry = journal.lookup(event.request_id)
+                if entry is None:
+                    entry = journal.lookup_by_features(event.user_agent, event.timestamp)
+                apply_journal(event, entry, host_map)
             existing = self._events.get(event.request_id)
             if existing is None:
                 added += 1
@@ -167,12 +170,26 @@ def _virtual_key_name(row: dict) -> str:
     return "anonymous"
 
 
+OTHER_APP_LABELS = ("", "other", "unknown")
+
+
 def _app_label(event: RequestEvent) -> str:
-    if event.app:
+    if event.app and event.app.lower() not in OTHER_APP_LABELS:
         return event.app
-    if event.user_agent:
-        return event.user_agent.split("/")[0][:32]
+    # Bifrost labels unrecognized user agents "other"; the UA product still
+    # tells the admin which client it was.
+    product = _user_agent_product(event.user_agent)
+    if product:
+        return product
     return "unknown"
+
+
+def _user_agent_product(user_agent: str) -> str:
+    text = user_agent.strip()
+    if not text:
+        return ""
+    token = text.split()[0].split("/")[0].strip()
+    return token[:32]
 
 
 def _row_timestamp(raw: object) -> float:

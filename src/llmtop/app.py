@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import socket
 import time
 
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalGroup
-from textual.widgets import DataTable, Footer, Header, RichLog, Static
+from textual.widgets import DataTable, RichLog, Static
 
 from .config import Config
 from .monitor import LiveMonitor, Monitor
@@ -176,16 +175,12 @@ class LlmTopApp(App):
         return variables
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
         yield VerticalGroup(id="engines")
         yield OriginTable(id="origins")
         yield FeedLog(id="feed")
         yield StatusBar(id="status")
-        yield Footer()
 
     async def on_mount(self) -> None:
-        self.title = "llmtop"
-        self.sub_title = f"{socket.gethostname()} -> {self.config.gateway.url}"
         self.set_interval(self.config.poll_interval, self.refresh_data)
         self.refresh_data()
 

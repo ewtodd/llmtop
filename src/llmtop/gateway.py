@@ -10,7 +10,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import dataclass
 
 from .config import GatewayConfig
@@ -104,6 +104,7 @@ class JournalIPSource:
         self.config = config
         self.status = "off"
         self._entries: OrderedDict[str, JournalEntry] = OrderedDict()
+        self._recent: deque[JournalEntry] = deque(maxlen=JOURNAL_CAPACITY)
         self._lock = threading.Lock()
         self._process: subprocess.Popen[str] | None = None
         self._reader: threading.Thread | None = None
@@ -168,6 +169,31 @@ class JournalIPSource:
         with self._lock:
             return self._entries.get(request_id)
 
+    def lookup_by_features(
+        self,
+        user_agent: str,
+        timestamp: float,
+        tolerance: float = 20.0,
+    ) -> JournalEntry | None:
+        """Fallback join for rows whose id does not match a journal request id.
+
+        Matches on user agent and timestamp proximity; within one machine the
+        user agent is stable, so this still names the right origin.
+        """
+        best: JournalEntry | None = None
+        best_delta = tolerance
+        with self._lock:
+            for entry in reversed(self._recent):
+                if entry.timestamp < timestamp - tolerance:
+                    break
+                if user_agent and entry.user_agent != user_agent:
+                    continue
+                delta = abs(entry.timestamp - timestamp)
+                if delta <= best_delta:
+                    best = entry
+                    best_delta = delta
+        return best
+
     def summary(self) -> str:
         if self.status == "live":
             with self._lock:
@@ -193,6 +219,7 @@ class JournalIPSource:
                 self._entries.move_to_end(entry.request_id)
                 while len(self._entries) > JOURNAL_CAPACITY:
                     self._entries.popitem(last=False)
+                self._recent.append(entry)
             if not live_seen:
                 live_seen = True
                 self.status = "live"
