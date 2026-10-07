@@ -12,19 +12,47 @@ two questions:
    in-flight requests, failures and latency.
 
 Stack matches [son-of-anton](https://github.com/ewtodd/son-of-anton): Python +
-[Textual](https://textual.textualize.io/) + Rich.
+[Textual](https://textual.textualize.io/) + Rich, and the default theme is
+derived from the terminal the same way (see below).
 
 ```
- llmtop  —  e-desktop -> http://10.0.0.6:4002                          12:35:50
- Engine                      Model                St  Run Wait  Prefill Decode ...
- qwen3.8-27b (vLLM)          qwen3.8-27b          up    3    1      423     48 ...
- qwen3.8-flash-next (gufo)   qwen3.8-flash-next   up    1    0      492     64 ...
- Key         App           Machine                  Req Live Fail Prefill Decode ...
- open-webui  open-webui    oracle      10.0.0.6     24    0    0     122     10 ...
- opencode    opencode      e-desktop   10.0.0.4     14    0    0      51     18 ...
- soa         son-of-anton  e-desktop   10.0.0.4     10    1    0      28     10 ...
- friend      unknown       203.0.113.77             23    0    0      83     19 ...
+ ╭─ qwen3.8-27b (vLLM) ─────────────────────────────────────────────────────────╮
+ │ ██  ██  49.6      DECODE   ████████████░░░░░░░░    50.7                      │
+ │  █  █             PREFILL  ██████████████████░░   454                        │
+ │ ██  ██            KV       ████████░░░░░░░░░░░░    40%                       │
+ │  █  █    tok/s    prefill avg 474 tok/s   ttft 711ms                         │
+ ╰─ recent avg ────────────────────── qwen3.8-27b · run 3 wait 1 ───────────────╯
+ Key         App           Machine               Req Live Fail Prefill Decode ...
+ opencode    opencode      e-desktop  10.0.0.4   36    0    0     105     9.8
+ soa         son-of-anton  e-desktop  10.0.0.4   32    1    0     159    22.4
+ open-webui  open-webui    oracle     10.0.0.6   12    0    0      51    14.0
 ```
+
+## The display
+
+- One card per engine: the **large number is the recent-request average**
+  generation speed (per-request compute time, not wall time, so idle periods
+  don't dilute it), with live DECODE / PREFILL / KV-cache bars and the
+  prefill average, TTFT, speculative-decode acceptance, slots and queue.
+  Cards keep the engine name, model and status.
+- Colors follow the reference nvtop-style layout: decode cyan, prefill
+  magenta, KV green/yellow/red at the usual thresholds.
+- Everything is laid out as fixed-width lines, so narrow terminals truncate
+  cleanly instead of wrapping the layout.
+
+## Theme
+
+Like son-of-anton, llmtop asks the terminal for its real background/foreground
+(OSC 10/11) before Textual starts, generates panel/surface/border/muted shades
+from that background (opencode's `generateSystem` ramp), and leaves the base
+background transparent so terminal transparency and backgrounds survive.
+Accents stay on the terminal's ANSI palette, and the Textual theme is
+`ansi-dark`/`ansi-light` by polarity. No answer from the terminal simply means
+no generated surfaces.
+
+`theme = "auto"` in the config is the default; set a Textual theme name
+(e.g. `theme = "textual-dark"`) to pin one. `LLMTOP_NO_COLOR_QUERY=1` skips
+the OSC query.
 
 ## Data sources
 
@@ -117,6 +145,8 @@ src/llmtop/
   engines.py      engine scrapers + rate/recent-request accounting
   gateway.py      Bifrost /api/logs client and SSH journal IP source
   origins.py      request-log rows -> origin rows
+  palette.py      OSC 10/11 query + terminal-derived surface generation
+  render.py       big-number glyphs, meters, history graphs, formatting
   monitor.py      polls everything and produces a Snapshot
   demo.py         synthetic monitor for --demo and tests
   app.py          the Textual UI
@@ -139,3 +169,10 @@ tests/            unit tests + Textual pilot tests
 ## License
 
 MIT
+
+## Credits
+
+- Card layout and the 5-row big-digit style follow
+  [juliantsu/llmtop](https://github.com/juliantsu/llmtop) (MIT).
+- The terminal palette (OSC query + generated surfaces) is ported from
+  son-of-anton (MIT), which in turn follows opencode's `generateSystem`.

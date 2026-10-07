@@ -9,28 +9,21 @@ import time
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import VerticalGroup
 from textual.widgets import DataTable, Footer, Header, RichLog, Static
 
 from .config import Config
 from .monitor import LiveMonitor, Monitor
+from .palette import TerminalColors, build_palette, theme_name
+from .render import (
+    engine_card_renderable,
+    format_age,
+    format_ms,
+    format_rate,
+    format_tokens,
+)
 from .snapshot import EngineState, OriginRow, RequestEvent, Snapshot
 
-SPARK_BLOCKS = "▁▂▃▄▅▆▇█"
-ENGINE_COLUMNS = (
-    "Engine",
-    "Model",
-    "St",
-    "Run",
-    "Wait",
-    "Prefill",
-    "Decode",
-    "Pref avg",
-    "Dec avg",
-    "TTFT",
-    "KV%",
-    "Accept",
-    "Decode history",
-)
 ORIGIN_COLUMNS = (
     "Key",
     "App",
@@ -51,12 +44,34 @@ class StatusBar(Static):
     pass
 
 
-class EngineTable(DataTable):
+class EngineCard(Static):
+    def __init__(self, state: EngineState) -> None:
+        super().__init__(id=f"engine-{state.id}")
+        self.engine_id = state.id
+        self._state = state
+        self._redraw()
+
+    def update_state(self, state: EngineState) -> None:
+        self._state = state
+        self._redraw()
+
     def on_mount(self) -> None:
-        self.cursor_type = "row"
-        self.zebra_stripes = True
-        self.add_columns(*ENGINE_COLUMNS)
-        self.fixed_columns = 1
+        self._redraw()
+
+    def on_resize(self) -> None:
+        self._redraw()
+
+    def _redraw(self) -> None:
+        state = self._state
+        width = self.content_size.width if self.is_mounted else 0
+        if width <= 0:
+            width = 100
+        models = ", ".join(state.models) or state.url
+        self.border_title = state.name
+        self.border_subtitle = f"{models}  ·  run {state.running} wait {state.waiting}"
+        self.set_class(state.ok, "ok")
+        self.set_class(not state.ok, "down")
+        self.update(engine_card_renderable(state, width))
 
 
 class OriginTable(DataTable):
@@ -80,13 +95,32 @@ class LlmTopApp(App):
         layout: vertical;
     }
     #engines {
+        height: auto;
+    }
+    EngineCard {
         height: 8;
+        border: round $border;
+        background: $surface;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+    EngineCard.down {
+        border: round $error;
     }
     #origins {
         height: 1fr;
+        min-height: 0;
+    }
+    /* The ANSI themes force a bright-blue table header; tone it to a generated
+       surface so the table belongs to the terminal's own palette. */
+    OriginTable:ansi > .datatable--header {
+        background: $panel-lighten-1;
+        color: $text;
     }
     #feed {
-        height: 12;
+        height: 1fr;
+        max-height: 10;
+        min-height: 0;
         border-top: solid $panel;
     }
     #status {
@@ -104,21 +138,45 @@ class LlmTopApp(App):
         Binding("c", "clear_feed", "Clear feed"),
     ]
 
-    def __init__(self, config: Config, monitor: Monitor | None = None) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        config: Config,
+        monitor: Monitor | None = None,
+        terminal_colors: TerminalColors | None = None,
+    ) -> None:
         self.config = config
         self.monitor = monitor if monitor is not None else LiveMonitor(config)
         self.snapshot = Snapshot()
+        self.terminal_colors = terminal_colors
+        self._surfaces = build_palette(terminal_colors) if terminal_colors is not None else {}
+        self._theme = config.theme if config.theme != "auto" else theme_name(terminal_colors)
         self._paused = False
         self._refreshing = False
         self._force_refresh = False
         self._sort_mode = 0
         self._seen_ids: set[str] = set()
         self._feed_order: list[str] = []
+        super().__init__()
+        self.theme = self._theme
+
+    def get_css_variables(self) -> dict[str, str]:
+        variables = dict(super().get_css_variables())
+        variables.update(
+            {
+                "primary": "ansi_yellow",
+                "secondary": "ansi_cyan",
+                "success": "ansi_green",
+                "warning": "ansi_yellow",
+                "error": "ansi_red",
+                "accent": "ansi_yellow",
+            }
+        )
+        variables.update(self._surfaces)
+        return variables
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield EngineTable(id="engines")
+        yield VerticalGroup(id="engines")
         yield OriginTable(id="origins")
         yield FeedLog(id="feed")
         yield StatusBar(id="status")
@@ -159,26 +217,23 @@ class LlmTopApp(App):
         self._render_status(snapshot)
 
     def _render_engines(self, engines: list[EngineState]) -> None:
-        table = self.query_one(EngineTable)
-        table.clear()
-        for engine in engines:
-            table.add_row(
-                Text(engine.name, style="bold"),
-                Text(",".join(engine.models) or "-", style="dim"),
-                Text("up", style="green") if engine.ok else Text("down", style="bold red"),
-                str(engine.running),
-                _wait_text(engine.waiting),
-                _rate_text(engine.prefill_now, "cyan"),
-                _rate_text(engine.decode_now, "bold cyan"),
-                _rate_text(engine.prefill_avg, "dim cyan"),
-                _rate_text(engine.decode_avg, "dim cyan"),
-                _latency_text(engine.ttft_ms),
-                _kv_text(engine.kv_usage),
-                _accept_text(engine.spec_accept),
-                Text(_sparkline(engine.decode_history, 24), style="cyan"),
-            )
+        panel = self.query_one("#engines", VerticalGroup)
         if not engines:
-            table.add_row(Text("no engines configured", style="dim"), *[""] * (len(ENGINE_COLUMNS) - 1))
+            if not list(panel.query("#engines-empty")):
+                message = "no engines configured — add [[engines]] to llmtop.toml"
+                panel.mount(Static(message, id="engines-empty"))
+            return
+        for placeholder in list(panel.query("#engines-empty")):
+            placeholder.remove()
+        cards = {card.engine_id: card for card in panel.query(EngineCard)}
+        for state in engines:
+            card = cards.pop(state.id, None)
+            if card is None:
+                panel.mount(EngineCard(state))
+            else:
+                card.update_state(state)
+        for stale in cards.values():
+            stale.remove()
 
     def _render_origins(self, origins: list[OriginRow]) -> None:
         table = self.query_one(OriginTable)
@@ -193,8 +248,8 @@ class LlmTopApp(App):
                 Text(str(row.failed), style="red") if row.failed else Text("0", style="dim"),
                 _rate_text(row.prompt_tps, "cyan"),
                 _rate_text(row.completion_tps, "bold cyan"),
-                _latency_text(row.avg_latency_ms),
-                Text(_fmt_age(time.time() - row.last_seen), style="dim"),
+                Text(format_ms(row.avg_latency_ms), style="" if row.avg_latency_ms else "dim"),
+                Text(format_age(time.time() - row.last_seen), style="dim"),
                 Text(",".join(row.models) or "-", style="dim"),
             )
         if not origins:
@@ -232,11 +287,14 @@ class LlmTopApp(App):
         text = Text()
         if self._paused:
             text.append("PAUSED  ", style="bold yellow")
-        text.append(f"gateway {'ok' if snapshot.gateway_ok else 'down'}", style="green" if snapshot.gateway_ok else "red")
+        text.append(
+            f"gateway {'ok' if snapshot.gateway_ok else 'down'}",
+            style="green" if snapshot.gateway_ok else "red",
+        )
         text.append(f"  engines {engines_up}/{len(snapshot.engines)}")
         text.append(f"  req/5m {snapshot.total_requests} ({snapshot.requests_per_minute:.1f}/min)")
-        text.append(f"  prompt {_fmt_tokens(snapshot.total_prompt_tokens)}")
-        text.append(f"  decode {_fmt_tokens(snapshot.total_completion_tokens)}")
+        text.append(f"  prompt {format_tokens(snapshot.total_prompt_tokens)}")
+        text.append(f"  decode {format_tokens(snapshot.total_completion_tokens)}")
         text.append(f"  inflight {snapshot.inflight}", style="yellow" if snapshot.inflight else "")
         text.append(f"  journal {snapshot.journal_status}")
         if snapshot.gateway_error:
@@ -248,7 +306,11 @@ class LlmTopApp(App):
         self._render_status(self.snapshot)
 
     def action_refresh(self) -> None:
-        self.run_worker(self.refresh_now(), name="refresh")
+        self._force_refresh = True
+        if self._refreshing:
+            return
+        self._refreshing = True
+        self.run_worker(self._poll(), name="poll")
 
     def action_cycle_sort(self) -> None:
         self._sort_mode = (self._sort_mode + 1) % len(SORT_MODES)
@@ -263,51 +325,8 @@ class LlmTopApp(App):
         self.monitor.close()
 
 
-def _sparkline(values: list[float], width: int) -> str:
-    if not values:
-        return ""
-    data = values[-width:]
-    top = max(data)
-    if top <= 0:
-        return SPARK_BLOCKS[0] * len(data)
-    chars = [
-        SPARK_BLOCKS[min(len(SPARK_BLOCKS) - 1, max(0, round(value / top * (len(SPARK_BLOCKS) - 1))))]
-        for value in data
-    ]
-    return "".join(chars)
-
-
 def _rate_text(value: float, style: str) -> Text:
-    return Text(_fmt_rate(value), style=style)
-
-
-def _wait_text(waiting: int) -> Text:
-    if waiting <= 0:
-        return Text("0", style="dim")
-    return Text(str(waiting), style="bold yellow")
-
-
-def _latency_text(value: float | None) -> Text:
-    if value is None:
-        return Text("-", style="dim")
-    return Text(_fmt_ms(value))
-
-
-def _kv_text(value: float | None) -> Text:
-    if value is None:
-        return Text("-", style="dim")
-    style = "green"
-    if value >= 0.85:
-        style = "bold red"
-    elif value >= 0.6:
-        style = "yellow"
-    return Text(f"{value * 100:.0f}%", style=style)
-
-
-def _accept_text(value: float | None) -> Text:
-    if value is None:
-        return Text("-", style="dim")
-    return Text(f"{value * 100:.0f}%")
+    return Text(format_rate(value), style=style)
 
 
 def _machine_text(row: OriginRow) -> Text:
@@ -332,7 +351,7 @@ def _feed_line(event: RequestEvent) -> Text:
     line.append(f" +{event.prompt_tokens:<6}", style="cyan")
     line.append(f" -{event.completion_tokens:<5}", style="bold cyan")
     if event.latency_ms is not None:
-        line.append(f" {_fmt_ms(event.latency_ms):>7}", style="")
+        line.append(f" {format_ms(event.latency_ms):>7}", style="")
     line.append(f" {event.model}", style="dim")
     if event.inflight:
         line.append("  running", style="yellow")
@@ -341,35 +360,3 @@ def _feed_line(event: RequestEvent) -> Text:
     else:
         line.append("  ok", style="green")
     return line
-
-
-def _fmt_rate(value: float) -> str:
-    if value >= 10000:
-        return f"{value / 1000:.0f}k"
-    if value >= 1000:
-        return f"{value / 1000:.1f}k"
-    return f"{value:.0f}"
-
-
-def _fmt_ms(value: float) -> str:
-    if value >= 1000:
-        return f"{value / 1000:.1f}s"
-    return f"{value:.0f}ms"
-
-
-def _fmt_tokens(value: int) -> str:
-    if value >= 1_000_000:
-        return f"{value / 1_000_000:.1f}M"
-    if value >= 1000:
-        return f"{value / 1000:.1f}k"
-    return str(value)
-
-
-def _fmt_age(seconds: float) -> str:
-    if seconds < 1:
-        return "now"
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    if seconds < 3600:
-        return f"{seconds / 60:.0f}m"
-    return f"{seconds / 3600:.1f}h"

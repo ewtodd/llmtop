@@ -51,8 +51,12 @@ class DemoMonitor(Monitor):
         phase = self._tick / 4.0 + index
         decode = max(8.0, 42.0 + 18.0 * math.sin(phase) + random.uniform(-4.0, 4.0))
         prefill = max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0) + random.uniform(-30.0, 30.0))
-        history = [
+        decode_history = [
             max(4.0, 42.0 + 18.0 * math.sin(phase - step / 4.0))
+            for step in range(40, 0, -1)
+        ]
+        prefill_history = [
+            max(40.0, 420.0 + 160.0 * math.sin(phase / 3.0 - step / 12.0))
             for step in range(40, 0, -1)
         ]
         return EngineState(
@@ -75,8 +79,8 @@ class DemoMonitor(Monitor):
             spec_accept=random.uniform(0.5, 0.8),
             active_slots=1 if random.random() < 0.7 else 0,
             total_slots=2,
-            prefill_history=history,
-            decode_history=[value * 0.1 for value in history],
+            prefill_history=prefill_history,
+            decode_history=decode_history,
             last_update=time.time(),
         )
 

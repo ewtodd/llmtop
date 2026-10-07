@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -41,8 +42,13 @@ class LiveMonitor(Monitor):
         self._last_gateway_poll = 0.0
         self._gateway_ok = False
         self._gateway_error = "not polled yet"
+        self._lock = threading.Lock()
 
     def snapshot(self, force: bool = False) -> Snapshot:
+        with self._lock:
+            return self._snapshot_locked(force)
+
+    def _snapshot_locked(self, force: bool) -> Snapshot:
         now = time.time()
         engines = self._poll_engines()
         if force or now - self._last_gateway_poll >= self.config.gateway_poll_interval:

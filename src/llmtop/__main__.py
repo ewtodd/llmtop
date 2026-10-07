@@ -12,6 +12,7 @@ from .app import LlmTopApp
 from .config import load_config
 from .demo import DemoMonitor
 from .monitor import LiveMonitor
+from .palette import query_terminal_colors
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,7 +37,8 @@ def main(argv: list[str] | None = None) -> int:
             json.dump(asdict(snapshot), sys.stdout, indent=2)
             print()
             return 0
-        LlmTopApp(config, monitor=monitor).run()
+        terminal_colors = query_terminal_colors()
+        LlmTopApp(config, monitor=monitor, terminal_colors=terminal_colors).run()
         return 0
     finally:
         monitor.close()

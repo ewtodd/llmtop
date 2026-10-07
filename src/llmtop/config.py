@@ -64,6 +64,7 @@ class Config:
     history_seconds: float = 180.0
     origin_window_seconds: float = 300.0
     env_file: str = "~/.config/llmtop/bifrost.env"
+    theme: str = "auto"
     source_path: str = ""
 
     def host_name(self, address: str) -> str:
@@ -139,6 +140,7 @@ def _apply_raw(config: Config, raw: dict[str, Any]) -> Config:
         "history_seconds",
         "origin_window_seconds",
         "env_file",
+        "theme",
     )
     for key in scalar_keys:
         if key in raw:

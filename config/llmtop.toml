@@ -7,9 +7,13 @@
 poll_interval = 1.5          # engine scrape interval, seconds
 gateway_poll_interval = 2.0  # Bifrost /api/logs poll interval, seconds
 avg_window_seconds = 60.0    # "recent request" averaging window
-history_seconds = 180.0      # sparkline window
+history_seconds = 180.0      # rate history kept in snapshots/--dump output
 origin_window_seconds = 300.0
 env_file = "~/.config/llmtop/bifrost.env"  # optional; KEY=VALUE for ${...} below
+# "auto" queries the terminal (OSC 10/11) and derives surfaces + ansi-dark/light
+# from its real colours, the same way son-of-anton does. Set a Textual theme
+# name (e.g. "textual-dark") to pin one instead.
+theme = "auto"
 
 [gateway]
 enabled = true

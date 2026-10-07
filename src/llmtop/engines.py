@@ -8,6 +8,7 @@ the per-request compute-time counters the engines expose.
 from __future__ import annotations
 
 import json
+import math
 import time
 import urllib.error
 import urllib.request
@@ -188,6 +189,9 @@ class EngineRunner:
 
     def poll(self, timeout: float = 1.5) -> EngineState:
         reading = fetch_reading(self.config, timeout)
+        if reading.ok and not _reading_is_finite(reading):
+            reading.ok = False
+            reading.error = "non-finite metrics"
         now = reading.ts
         if not reading.ok:
             state = self._empty_state()
@@ -249,7 +253,9 @@ class EngineRunner:
         previous = self._last_reading
         if previous is not None and previous.ok:
             elapsed = reading.ts - previous.ts
-            if elapsed > 0:
+            # Back-to-back polls (forced refresh racing the timer) would divide
+            # by a near-zero interval and produce absurd spikes.
+            if elapsed >= 0.05:
                 state.prefill_now = max(reading.prefill_tokens - previous.prefill_tokens, 0.0) / elapsed
                 state.decode_now = max(reading.output_tokens - previous.output_tokens, 0.0) / elapsed
 
@@ -304,11 +310,33 @@ class EngineRunner:
         )
 
 
+def _reading_is_finite(reading: EngineReading) -> bool:
+    counters = (
+        reading.prefill_tokens,
+        reading.prefill_compute_tokens,
+        reading.output_tokens,
+        reading.prefill_seconds,
+        reading.output_seconds,
+    )
+    optional = (
+        reading.kv_usage,
+        reading.ttft_seconds_sum,
+        reading.ttft_count,
+        reading.spec_draft_tokens,
+        reading.spec_accepted_tokens,
+    )
+    if any(not math.isfinite(value) for value in counters):
+        return False
+    return all(value is None or math.isfinite(value) for value in optional)
+
+
 def _average_rate(tokens: float, seconds: float, wall_seconds: float) -> float:
-    if seconds > 0.05:
-        return max(tokens, 0.0) / seconds
-    if wall_seconds > 0:
-        return max(tokens, 0.0) / wall_seconds
+    if not math.isfinite(tokens) or tokens < 0:
+        return 0.0
+    if seconds > 0.05 and math.isfinite(seconds):
+        return tokens / seconds
+    if wall_seconds > 0 and math.isfinite(wall_seconds):
+        return tokens / wall_seconds
     return 0.0
 
 

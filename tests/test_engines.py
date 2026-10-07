@@ -68,6 +68,27 @@ def test_counter_reset_clears_window(monkeypatch):
     assert state.prefill_avg == 0.0
 
 
+def test_back_to_back_polls_do_not_spike(monkeypatch):
+    runner = _runner(
+        monkeypatch,
+        [
+            _reading(100.0),
+            _reading(100.02, prompt=200, compute=200, output=40),
+        ],
+    )
+    runner.poll()
+    state = runner.poll()
+    assert state.prefill_now == 0.0
+    assert state.decode_now == 0.0
+
+
+def test_non_finite_reading_marks_engine_down(monkeypatch):
+    runner = _runner(monkeypatch, [ _reading(100.0, prompt=float("nan")) ])
+    state = runner.poll()
+    assert state.ok is False
+    assert "non-finite" in state.error
+
+
 def test_failed_poll_keeps_history(monkeypatch):
     runner = _runner(
         monkeypatch,
