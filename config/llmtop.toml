@@ -6,7 +6,7 @@
 
 poll_interval = 1.5          # engine scrape interval, seconds
 gateway_poll_interval = 2.0  # Bifrost /api/logs poll interval, seconds
-avg_window_seconds = 60.0    # "recent request" averaging window
+avg_window_seconds = 3.0     # "recent request" averaging window (the big number)
 history_seconds = 180.0      # rate history kept in snapshots/--dump output
 origin_window_seconds = 300.0
 env_file = "~/.config/llmtop/bifrost.env"  # optional; KEY=VALUE for ${...} below

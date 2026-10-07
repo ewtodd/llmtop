@@ -56,6 +56,14 @@ def test_headline_number_matches_reference_format():
     assert headline_number(1234.0) == "1234"
 
 
+def test_card_label_shows_average_window():
+    card = engine_card_renderable(_state(), width=100, avg_window=3.0)
+    label = card.renderables[-1].plain
+    assert "3s avg" in label
+    card = engine_card_renderable(_state(), width=100, avg_window=120.0)
+    assert "2m avg" in card.renderables[-1].plain
+
+
 def test_meter_line_fills_proportionally():
     line = meter_line("DECODE", 30.0, 100.0, 10, "cyan")
     assert line.plain.startswith("DECODE  ")

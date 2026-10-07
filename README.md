@@ -21,7 +21,7 @@ derived from the terminal the same way (see below).
  │  █  █             PREFILL  ██████████████████░░   454                        │
  │ ██  ██            KV       ████████░░░░░░░░░░░░    40%                       │
  │  █  █    tok/s    prefill avg 474 tok/s   ttft 711ms                         │
- ╰─ recent avg ────────────────────── qwen3.8-27b · run 3 wait 1 ───────────────╯
+ ╰─ 3s avg ───────────────────────── qwen3.8-27b · run 3 wait 1 ───────────────╯
  Key         App           Machine               Req Live Fail Prefill Decode ...
  opencode    opencode      e-desktop  10.0.0.4   36    0    0     105     9.8
  soa         son-of-anton  e-desktop  10.0.0.4   32    1    0     159    22.4
@@ -31,10 +31,11 @@ derived from the terminal the same way (see below).
 ## The display
 
 - One card per engine: the **large number is the recent-request average**
-  generation speed (per-request compute time, not wall time, so idle periods
-  don't dilute it), with live DECODE / PREFILL / KV-cache bars and the
-  prefill average, TTFT, speculative-decode acceptance, slots and queue.
-  Cards keep the engine name, model and status.
+  generation speed over the configured window (`avg_window_seconds`, default
+  3 s; the label shows it). It uses per-request compute time rather than wall
+  time, so idle gaps don't dilute it. Below are live DECODE / PREFILL /
+  KV-cache bars plus prefill average, TTFT, speculative-decode acceptance,
+  slots and queue. Cards keep the engine name, model and status.
 - Colors follow the reference nvtop-style layout: decode cyan, prefill
   magenta, KV green/yellow/red at the usual thresholds.
 - Everything is laid out as fixed-width lines, so narrow terminals truncate
@@ -91,7 +92,7 @@ by default.
 
 ```toml
 poll_interval = 1.5
-avg_window_seconds = 60.0
+avg_window_seconds = 3.0
 
 [gateway]
 url = "http://10.0.0.6:4002"

@@ -110,7 +110,7 @@ def kv_style(usage: float | None) -> str:
     return "green"
 
 
-def engine_card_renderable(state: EngineState, width: int = 100) -> Group:
+def engine_card_renderable(state: EngineState, width: int = 100, avg_window: float = 60.0) -> Group:
     width = max(width, 24)
     if not state.ok:
         lines = [
@@ -121,7 +121,7 @@ def engine_card_renderable(state: EngineState, width: int = 100) -> Group:
         return Group(*[ _truncate(line, width) for line in lines ])
 
     big = big_number_lines(headline_number(state.decode_avg))
-    big.append(Text("tok/s  recent avg", style="dim"))
+    big.append(Text(f"tok/s  {window_label(avg_window)} avg", style="dim"))
     while len(big) < CARD_ROWS:
         big.append(Text(""))
     big_width = min(max(len(line.plain) for line in big), width)
@@ -186,6 +186,15 @@ def _detail_line(state: EngineState) -> Text:
     if state.waiting:
         text.append(f" {state.waiting} wait", style="bold yellow")
     return text
+
+
+def window_label(seconds: float) -> str:
+    window = max(finite(seconds), 0.0)
+    if window < 60:
+        return f"{window:.0f}s"
+    if window < 3600:
+        return f"{window / 60:.0f}m"
+    return f"{window / 3600:.1f}h"
 
 
 def format_rate(value: float) -> str:
