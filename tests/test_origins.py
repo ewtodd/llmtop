@@ -46,6 +46,40 @@ def test_parse_log_row():
     assert event.inflight is False
 
 
+def test_parse_log_row_reads_forwarded_address():
+    event = parse_log_row(_row(metadata={ "x-forwarded-for": "203.0.113.9, 10.0.0.7" }))
+    assert event is not None
+    assert event.address == "203.0.113.9"
+
+
+def test_metadata_address_wins_over_journal():
+    class WrongJournal:
+        def lookup(self, request_id):
+            return JournalEntry(
+                request_id=request_id,
+                timestamp=time.time(),
+                address="10.0.0.7",
+                target="",
+                user_agent="",
+                status_code=200,
+                duration_ms=1.0,
+            )
+
+        def lookup_by_features(self, user_agent, timestamp, tolerance=20.0):
+            return None
+
+    tracker = OriginTracker()
+    now = time.time()
+    tracker.ingest(
+        [ _row("a", timestamp=_iso(now), metadata={ "x-real-ip": "203.0.113.9" }) ],
+        WrongJournal(),
+        { "203.0.113.9": "friend" },
+    )
+    origins, _ = tracker.aggregate(time.time(), 300.0)
+    assert origins[0].address == "203.0.113.9"
+    assert origins[0].host == "friend"
+
+
 def test_parse_nested_virtual_key_and_missing_usage():
     event = parse_log_row(_row(virtual_key_name=None, virtual_key={ "name": "friend" }, token_usage=None))
     assert event is not None

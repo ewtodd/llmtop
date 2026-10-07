@@ -34,9 +34,24 @@ def parse_log_row(row: dict) -> RequestEvent | None:
         latency_ms=_optional_float(row.get("latency")),
         prompt_tokens=_int(usage.get("prompt_tokens")),
         completion_tokens=_int(usage.get("completion_tokens")),
+        address=forwarded_address(row.get("metadata")),
         content_summary=str(row.get("content_summary") or ""),
     )
     return event
+
+
+def forwarded_address(metadata: object) -> str:
+    """Client IP captured by Bifrost's logging_headers, when configured."""
+    if not isinstance(metadata, dict):
+        return ""
+    for key in ("x-forwarded-for", "x-real-ip"):
+        value = metadata.get(key)
+        if isinstance(value, list) and value:
+            value = value[0]
+        if isinstance(value, str) and value.strip():
+            # X-Forwarded-For is client, proxy1, proxy2; the client is first.
+            return value.split(",")[0].strip()
+    return ""
 
 
 def apply_journal(event: RequestEvent, entry: JournalEntry | None, host_map: dict[str, str]) -> None:
@@ -70,11 +85,13 @@ class OriginTracker:
             event = parse_log_row(row)
             if event is None:
                 continue
-            if journal is not None:
+            if journal is not None and not event.address:
                 entry = journal.lookup(event.request_id)
                 if entry is None:
                     entry = journal.lookup_by_features(event.user_agent, event.timestamp)
                 apply_journal(event, entry, host_map)
+            if not event.host and event.address:
+                event.host = host_map.get(event.address, "")
             existing = self._events.get(event.request_id)
             if existing is None:
                 added += 1

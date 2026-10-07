@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import shlex
 import subprocess
@@ -213,20 +214,35 @@ def _parse_journal_line(line: str) -> JournalEntry | None:
     if record.get("message") != "request completed":
         return None
     request_id = record.get("request_id")
-    remote = record.get("http.remote_addr")
-    if not request_id or not remote:
+    # Behind a reverse proxy the TCP peer is the proxy; the real client is in
+    # X-Forwarded-For, which Bifrost logs as http.forwarded_for.
+    source = record.get("http.forwarded_for") or record.get("http.remote_addr")
+    if not request_id or not source:
         return None
-    address, _, _ = remote.rpartition(":")
-    address = address.strip("[]") or remote
     return JournalEntry(
         request_id=request_id,
         timestamp=_parse_time(record.get("time")),
-        address=address,
+        address=client_address(str(source)),
         target=str(record.get("http.target", "")),
         user_agent=str(record.get("http.user_agent", "")),
         status_code=int(record.get("http.status_code", 0) or 0),
         duration_ms=float(record.get("http.request_duration_ms", 0.0) or 0.0),
     )
+
+
+def client_address(value: str) -> str:
+    """First address from an X-Forwarded-For list or a host:port peer."""
+    first = value.split(",")[0].strip()
+    if first.startswith("[") and "]" in first:
+        return first[1 : first.index("]")]
+    try:
+        return str(ipaddress.ip_address(first))
+    except ValueError:
+        pass
+    host, _, port = first.rpartition(":")
+    if host and port.isdigit():
+        return host
+    return first
 
 
 def _parse_time(raw: object) -> float:

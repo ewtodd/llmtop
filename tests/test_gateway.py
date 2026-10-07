@@ -3,7 +3,14 @@ import json
 import pytest
 
 from llmtop.config import GatewayConfig
-from llmtop.gateway import BifrostClient, GatewayError, JournalEntry, JournalIPSource, _parse_journal_line
+from llmtop.gateway import (
+    BifrostClient,
+    GatewayError,
+    JournalEntry,
+    JournalIPSource,
+    _parse_journal_line,
+    client_address,
+)
 
 
 def test_parse_journal_line():
@@ -28,6 +35,29 @@ def test_parse_journal_line():
     assert entry.address == "10.0.0.4"
     assert entry.target == "/v1/chat/completions"
     assert entry.status_code == 200
+
+
+def test_parse_journal_line_prefers_forwarded_for():
+    line = json.dumps(
+        {
+            "message": "request completed",
+            "request_id": "req-proxy",
+            "http.remote_addr": "10.0.0.7:56570",
+            "http.forwarded_for": "10.0.0.4",
+            "http.status_code": 200,
+            "time": "2026-10-07T16:00:13-05:00",
+        }
+    )
+    entry = _parse_journal_line(line)
+    assert entry is not None
+    assert entry.address == "10.0.0.4"
+
+
+def test_client_address_forms():
+    assert client_address("10.0.0.4, 10.0.0.7") == "10.0.0.4"
+    assert client_address("10.0.0.4:56570") == "10.0.0.4"
+    assert client_address("[2001:db8::1]:443") == "2001:db8::1"
+    assert client_address("2001:db8::1") == "2001:db8::1"
 
 
 def test_parse_journal_line_ignores_other_messages():
