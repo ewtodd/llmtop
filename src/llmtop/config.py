@@ -49,6 +49,10 @@ class GatewayConfig:
     log_limit: int = 200
     journal_enabled: bool = True
     journal_ssh: str = "oracle"
+    journal_ssh_port: int | None = None
+    journal_ssh_identity: str = ""
+    journal_ssh_proxy_jump: str = ""
+    journal_ssh_extra_args: list[str] = field(default_factory=list)
     journal_unit: str = "bifrost"
     journal_since: str = "10 minutes ago"
 
@@ -205,6 +209,8 @@ def _expand_config(config: Config, environ: dict[str, str]) -> None:
     gateway.username = _expand(gateway.username, environ)
     gateway.password = _expand(gateway.password, environ)
     gateway.journal_ssh = _expand(gateway.journal_ssh, environ)
+    gateway.journal_ssh_identity = _expand(gateway.journal_ssh_identity, environ)
+    gateway.journal_ssh_proxy_jump = _expand(gateway.journal_ssh_proxy_jump, environ)
     gateway.journal_unit = _expand(gateway.journal_unit, environ)
 
 

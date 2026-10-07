@@ -166,7 +166,11 @@ tests/            unit tests + Textual pilot tests
   the portable identity.
 - Client IPs require the journal SSH source. It uses
   `ssh -o BatchMode=yes oracle journalctl ...`; the `oracle` user must be able
-  to read the unit journal (wheel members can on the current hosts).
+  to read the unit journal (wheel members can on the current hosts). When
+  llmtop runs as a user without your ssh aliases (root, for the agenix
+  credentials), set `journal_ssh_port`, `journal_ssh_identity` and
+  `journal_ssh_proxy_jump` in `[gateway]`; the jump value is passed to `ssh -J`
+  as `[user@]host[:port]`.
 - The request feed shows `processing` rows as they appear, so in-flight
   requests are visible before they complete.
 

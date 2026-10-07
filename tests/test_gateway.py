@@ -84,6 +84,38 @@ def test_fetch_logs_parses_response(monkeypatch: pytest.MonkeyPatch):
     assert calls["auth"].startswith("Basic ")
 
 
+def test_journal_command_includes_explicit_ssh_options():
+    from llmtop.gateway import journal_command
+
+    config = GatewayConfig(
+        journal_ssh="oracle",
+        journal_ssh_port=2222,
+        journal_ssh_identity="~/.ssh/id_ed25519",
+        journal_ssh_proxy_jump="bastion",
+        journal_since="10 minutes ago",
+    )
+    command = journal_command(config)
+    assert command[:2] == [ "ssh", "-o" ]
+    assert "-p" in command and "2222" in command
+    assert "-J" in command and "bastion" in command
+    identity = command[command.index("-i") + 1]
+    assert identity.endswith("/.ssh/id_ed25519")
+    assert not identity.startswith("~")
+    assert command[-2] == "oracle"
+    assert "journalctl" in command[-1]
+    assert "10 minutes ago" in command[-1]
+
+
+def test_journal_command_defaults_to_alias_only():
+    from llmtop.gateway import journal_command
+
+    command = journal_command(GatewayConfig(journal_ssh="oracle"))
+    assert "-p" not in command
+    assert "-i" not in command
+    assert "-J" not in command
+    assert command[-2] == "oracle"
+
+
 def test_lookup_by_features_prefers_closest_match():
     source = JournalIPSource(GatewayConfig())
     older = JournalEntry("a", 100.0, "10.0.0.4", "", "ua", 200, 1.0)

@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 from collections import OrderedDict, deque
 from dataclasses import dataclass
+from pathlib import Path
 
 from .config import GatewayConfig
 
@@ -113,30 +114,7 @@ class JournalIPSource:
         if not self.config.journal_enabled or not self.config.journal_ssh:
             self.status = "off"
             return
-        # ssh flattens the remote argv with spaces, so the remote command is
-        # built as one shell-quoted string and sent as a single argument.
-        remote_command = shlex.join(
-            [
-                "journalctl",
-                "-u",
-                self.config.journal_unit,
-                "-f",
-                "-o",
-                "cat",
-                "--no-pager",
-                "--since",
-                self.config.journal_since,
-            ]
-        )
-        command = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=5",
-            self.config.journal_ssh,
-            remote_command,
-        ]
+        command = journal_command(self.config)
         self.status = "starting"
         try:
             self._process = subprocess.Popen(
@@ -262,16 +240,38 @@ def _parse_time(raw: object) -> float:
         return time.time()
 
 
-def ssh_command_preview(config: GatewayConfig) -> str:
-    return shlex.join(
+def journal_command(config: GatewayConfig) -> list[str]:
+    """Build the ssh + journalctl follow command.
+
+    A user's ssh alias carries its own port/proxy/key; when llmtop runs as
+    another user (e.g. root) those options can be set explicitly here.
+    ssh flattens the remote argv with spaces, so the remote command is built
+    as one shell-quoted string and sent as a single argument.
+    """
+    remote_command = shlex.join(
         [
-            "ssh",
-            config.journal_ssh,
             "journalctl",
             "-u",
             config.journal_unit,
             "-f",
             "-o",
             "cat",
+            "--no-pager",
+            "--since",
+            config.journal_since,
         ]
     )
+    command = [ "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5" ]
+    if config.journal_ssh_port:
+        command += [ "-p", str(config.journal_ssh_port) ]
+    if config.journal_ssh_identity:
+        command += [ "-i", str(Path(config.journal_ssh_identity).expanduser()) ]
+    if config.journal_ssh_proxy_jump:
+        command += [ "-J", config.journal_ssh_proxy_jump ]
+    command += list(config.journal_ssh_extra_args)
+    command += [ config.journal_ssh, remote_command ]
+    return command
+
+
+def ssh_command_preview(config: GatewayConfig) -> str:
+    return shlex.join(journal_command(config))

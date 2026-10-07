@@ -28,6 +28,11 @@ exclude_providers = [ "embed", "oracle" ]
 # follows the journal over SSH to join request ids to machine addresses.
 journal_enabled = true
 journal_ssh = "oracle"
+# Explicit ssh options for when llmtop runs under a user without your ssh
+# aliases (e.g. root); -J takes the usual [user@]host[:port] form.
+# journal_ssh_port = 2222
+# journal_ssh_identity = "~/.ssh/id_ed25519"
+# journal_ssh_proxy_jump = "bastion"
 journal_unit = "bifrost"
 journal_since = "10 minutes ago"
 
