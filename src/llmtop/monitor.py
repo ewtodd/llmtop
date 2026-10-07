@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .config import Config
 from .engines import EngineRunner
-from .gateway import BifrostClient, GatewayError, JournalIPSource
+from .gateway import BifrostClient, GatewayError
 from .origins import OriginTracker
 from .snapshot import Snapshot
 
@@ -36,9 +36,7 @@ class LiveMonitor(Monitor):
             thread_name_prefix="llmtop-engine",
         )
         self.client = BifrostClient(config.gateway)
-        self.journal = JournalIPSource(config.gateway)
         self.tracker = OriginTracker()
-        self.journal.start()
         self._last_gateway_poll = 0.0
         self._gateway_ok = False
         self._gateway_error = "not polled yet"
@@ -68,7 +66,6 @@ class LiveMonitor(Monitor):
             feed=self.tracker.feed(60),
             gateway_ok=self._gateway_ok,
             gateway_error=self._gateway_error,
-            journal_status=self.journal.summary(),
             total_requests=totals.requests,
             total_prompt_tokens=totals.prompt_tokens,
             total_completion_tokens=totals.completion_tokens,
@@ -100,10 +97,9 @@ class LiveMonitor(Monitor):
             self._gateway_ok = False
             self._gateway_error = str(error)
             return
-        self.tracker.ingest(rows, self.journal, self.config.hosts)
+        self.tracker.ingest(rows)
         self._gateway_ok = True
         self._gateway_error = ""
 
     def close(self) -> None:
-        self.journal.stop()
         self.pool.shutdown(wait=False, cancel_futures=True)

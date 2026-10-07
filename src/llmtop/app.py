@@ -26,7 +26,6 @@ from .snapshot import EngineState, OriginRow, RequestEvent, Snapshot
 ORIGIN_COLUMNS = (
     "Key",
     "App",
-    "Machine",
     "Req",
     "Live",
     "Fail",
@@ -238,7 +237,6 @@ class LlmTopApp(App):
             table.add_row(
                 Text(row.virtual_key, style="bold"),
                 Text(row.app, style=""),
-                _machine_text(row),
                 str(row.requests),
                 Text(str(row.inflight), style="yellow") if row.inflight else Text("0", style="dim"),
                 Text(str(row.failed), style="red") if row.failed else Text("0", style="dim"),
@@ -292,7 +290,6 @@ class LlmTopApp(App):
         text.append(f"  prompt {format_tokens(snapshot.total_prompt_tokens)}")
         text.append(f"  decode {format_tokens(snapshot.total_completion_tokens)}")
         text.append(f"  inflight {snapshot.inflight}", style="yellow" if snapshot.inflight else "")
-        text.append(f"  journal {snapshot.journal_status}")
         if snapshot.gateway_error:
             text.append(f"  {snapshot.gateway_error}", style="red")
         status.update(text)
@@ -325,16 +322,6 @@ def _rate_text(value: float, style: str) -> Text:
     return Text(format_rate(value), style=style)
 
 
-def _machine_text(row: OriginRow) -> Text:
-    text = Text()
-    if row.host:
-        text.append(row.host)
-        text.append(f" {row.address}", style="dim")
-    else:
-        text.append(row.address or "unknown", style="dim")
-    return text
-
-
 def _feed_line(event: RequestEvent) -> Text:
     timestamp = time.strftime("%H:%M:%S", time.localtime(event.timestamp))
     line = Text()
@@ -342,8 +329,6 @@ def _feed_line(event: RequestEvent) -> Text:
     line.append(" ")
     line.append(f"{event.provider:<5}", style="magenta")
     line.append(f" {event.virtual_key:<11}", style="bold")
-    machine = event.host or event.address or "?"
-    line.append(f"{machine:<14}", style="")
     line.append(f" +{event.prompt_tokens:<6}", style="cyan")
     line.append(f" -{event.completion_tokens:<5}", style="bold cyan")
     if event.latency_ms is not None:

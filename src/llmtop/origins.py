@@ -1,4 +1,8 @@
-"""Turn Bifrost request-log rows into origin rows for the TUI."""
+"""Turn Bifrost request-log rows into origin rows for the TUI.
+
+The monitored identity is the virtual key: every consumer gets its own key,
+so the key names the origin regardless of where the backend or browser runs.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,6 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 
-from .gateway import JournalEntry
 from .snapshot import OriginRow, RequestEvent
 
 EVENT_CAPACITY = 8000
@@ -20,7 +23,7 @@ def parse_log_row(row: dict) -> RequestEvent | None:
     usage = row.get("token_usage") or {}
     if not isinstance(usage, dict):
         usage = {}
-    event = RequestEvent(
+    return RequestEvent(
         request_id=request_id,
         timestamp=_row_timestamp(row.get("timestamp")),
         virtual_key=_virtual_key_name(row),
@@ -34,33 +37,8 @@ def parse_log_row(row: dict) -> RequestEvent | None:
         latency_ms=_optional_float(row.get("latency")),
         prompt_tokens=_int(usage.get("prompt_tokens")),
         completion_tokens=_int(usage.get("completion_tokens")),
-        address=forwarded_address(row.get("metadata")),
         content_summary=str(row.get("content_summary") or ""),
     )
-    return event
-
-
-def forwarded_address(metadata: object) -> str:
-    """Client IP captured by Bifrost's logging_headers, when configured."""
-    if not isinstance(metadata, dict):
-        return ""
-    for key in ("x-forwarded-for", "x-real-ip"):
-        value = metadata.get(key)
-        if isinstance(value, list) and value:
-            value = value[0]
-        if isinstance(value, str) and value.strip():
-            # X-Forwarded-For is client, proxy1, proxy2; the client is first.
-            return value.split(",")[0].strip()
-    return ""
-
-
-def apply_journal(event: RequestEvent, entry: JournalEntry | None, host_map: dict[str, str]) -> None:
-    if entry is None:
-        return
-    event.address = entry.address
-    event.host = host_map.get(entry.address, "")
-    if entry.user_agent and not event.user_agent:
-        event.user_agent = entry.user_agent
 
 
 @dataclass
@@ -79,21 +57,13 @@ class OriginTracker:
         self.capacity = capacity
         self._events: OrderedDict[str, RequestEvent] = OrderedDict()
 
-    def ingest(self, rows: list[dict], journal: object | None, host_map: dict[str, str]) -> int:
+    def ingest(self, rows: list[dict]) -> int:
         added = 0
         for row in rows:
             event = parse_log_row(row)
             if event is None:
                 continue
-            if journal is not None and not event.address:
-                entry = journal.lookup(event.request_id)
-                if entry is None:
-                    entry = journal.lookup_by_features(event.user_agent, event.timestamp)
-                apply_journal(event, entry, host_map)
-            if not event.host and event.address:
-                event.host = host_map.get(event.address, "")
-            existing = self._events.get(event.request_id)
-            if existing is None:
+            if event.request_id not in self._events:
                 added += 1
             self._events[event.request_id] = event
             self._events.move_to_end(event.request_id)
@@ -118,25 +88,20 @@ class OriginTracker:
     ) -> tuple[list[OriginRow], Totals]:
         include = set(include_providers or [])
         exclude = set(exclude_providers or [])
-        rows: dict[tuple[str, str, str], OriginRow] = {}
+        rows: dict[tuple[str, str], OriginRow] = {}
         totals = Totals()
-        latency_sums: dict[tuple[str, str, str], float] = {}
-        latency_counts: dict[tuple[str, str, str], int] = {}
+        latency_sums: dict[tuple[str, str], float] = {}
+        latency_counts: dict[tuple[str, str], int] = {}
 
         for event in self.events_since(now, window):
             if include and event.provider not in include:
                 continue
             if event.provider in exclude:
                 continue
-            key = (event.virtual_key, _app_label(event), event.address or "unknown")
+            key = (event.virtual_key, _app_label(event))
             row = rows.get(key)
             if row is None:
-                row = OriginRow(
-                    virtual_key=event.virtual_key,
-                    app=_app_label(event),
-                    address=event.address or "unknown",
-                    host=event.host,
-                )
+                row = OriginRow(virtual_key=event.virtual_key, app=_app_label(event))
                 rows[key] = row
             row.requests += 1
             row.prompt_tokens += event.prompt_tokens

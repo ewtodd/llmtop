@@ -48,8 +48,6 @@ class RequestEvent:
     latency_ms: float | None = None
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    address: str = ""
-    host: str = ""
     content_summary: str = ""
 
     @property
@@ -65,8 +63,6 @@ class RequestEvent:
 class OriginRow:
     virtual_key: str
     app: str
-    address: str
-    host: str
     requests: int = 0
     inflight: int = 0
     failed: int = 0
@@ -87,7 +83,6 @@ class Snapshot:
     feed: list[RequestEvent] = field(default_factory=list)
     gateway_ok: bool = False
     gateway_error: str = ""
-    journal_status: str = "off"
     total_requests: int = 0
     total_prompt_tokens: int = 0
     total_completion_tokens: int = 0

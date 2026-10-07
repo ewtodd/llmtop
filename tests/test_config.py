@@ -10,8 +10,6 @@ def test_defaults_focus_on_chat_engines():
     assert [ engine.id for engine in config.engines ] == [ "vllm", "strix" ]
     assert "embed" in config.gateway.exclude_providers
     assert "oracle" in config.gateway.exclude_providers
-    assert config.host_name("10.0.0.5") == "son-of-anton"
-    assert config.host_name("unknown") == ""
 
 
 def test_engine_rejects_unknown_kind():

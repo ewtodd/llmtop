@@ -47,21 +47,12 @@ class GatewayConfig:
     include_providers: list[str] = field(default_factory=list)
     exclude_providers: list[str] = field(default_factory=lambda: [ "embed", "oracle" ])
     log_limit: int = 200
-    journal_enabled: bool = True
-    journal_ssh: str = "oracle"
-    journal_ssh_port: int | None = None
-    journal_ssh_identity: str = ""
-    journal_ssh_proxy_jump: str = ""
-    journal_ssh_extra_args: list[str] = field(default_factory=list)
-    journal_unit: str = "bifrost"
-    journal_since: str = "10 minutes ago"
 
 
 @dataclass
 class Config:
     engines: list[EngineConfig] = field(default_factory=list)
     gateway: GatewayConfig = field(default_factory=GatewayConfig)
-    hosts: dict[str, str] = field(default_factory=dict)
     poll_interval: float = 1.5
     gateway_poll_interval: float = 2.0
     headline_interval_seconds: float = 3.0
@@ -70,11 +61,6 @@ class Config:
     env_file: str = "~/.config/llmtop/bifrost.env"
     theme: str = "auto"
     source_path: str = ""
-
-    def host_name(self, address: str) -> str:
-        if not address:
-            return ""
-        return self.hosts.get(address, "")
 
 
 def default_config() -> Config:
@@ -96,17 +82,6 @@ def default_config() -> Config:
             ),
         ],
         gateway=GatewayConfig(),
-        hosts={
-            "10.0.0.2": "mu",
-            "10.0.0.3": "anton",
-            "10.0.0.4": "e-desktop",
-            "10.0.0.5": "son-of-anton",
-            "10.0.0.6": "oracle",
-            "10.0.0.7": "nu",
-            "10.0.0.8": "tony",
-            "127.0.0.1": "oracle",
-            "::1": "oracle",
-        },
     )
 
 
@@ -152,10 +127,6 @@ def _apply_raw(config: Config, raw: dict[str, Any]) -> Config:
 
     if "engines" in raw:
         config.engines = [_engine_from_raw(item) for item in raw["engines"]]
-    if "hosts" in raw:
-        config.hosts = {str(key): str(value) for key, value in raw["hosts"].items()}
-        config.hosts.setdefault("127.0.0.1", "oracle")
-        config.hosts.setdefault("::1", "oracle")
 
     gateway_raw = raw.get("gateway", {})
     if isinstance(gateway_raw, dict):
@@ -208,10 +179,6 @@ def _expand_config(config: Config, environ: dict[str, str]) -> None:
     gateway.url = _expand(gateway.url, environ).rstrip("/")
     gateway.username = _expand(gateway.username, environ)
     gateway.password = _expand(gateway.password, environ)
-    gateway.journal_ssh = _expand(gateway.journal_ssh, environ)
-    gateway.journal_ssh_identity = _expand(gateway.journal_ssh_identity, environ)
-    gateway.journal_ssh_proxy_jump = _expand(gateway.journal_ssh_proxy_jump, environ)
-    gateway.journal_unit = _expand(gateway.journal_unit, environ)
 
 
 def _expand(value: str, environ: dict[str, str]) -> str:

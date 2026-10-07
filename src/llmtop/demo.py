@@ -11,10 +11,10 @@ from .monitor import Monitor
 from .snapshot import EngineState, OriginRow, RequestEvent, Snapshot
 
 DEMO_ORIGINS = (
-    ("soa", "son-of-anton", "10.0.0.4", "e-desktop"),
-    ("opencode", "opencode", "10.0.0.4", "e-desktop"),
-    ("open-webui", "open-webui", "10.0.0.6", "oracle"),
-    ("friend", "unknown", "203.0.113.77", ""),
+    ("soa", "son-of-anton"),
+    ("opencode", "opencode"),
+    ("open-webui", "open-webui"),
+    ("friend", "unknown"),
 )
 
 DEMO_MODELS = ("qwen3.8-27b", "qwen3.8-flash-next")
@@ -39,7 +39,6 @@ class DemoMonitor(Monitor):
             feed=list(reversed(self._feed[-60:])),
             gateway_ok=True,
             gateway_error="",
-            journal_status="live (demo)",
             total_requests=sum(row.requests for row in origins),
             total_prompt_tokens=sum(row.prompt_tokens for row in origins),
             total_completion_tokens=sum(row.completion_tokens for row in origins),
@@ -86,7 +85,7 @@ class DemoMonitor(Monitor):
 
     def _origins(self, now: float) -> list[OriginRow]:
         rows: list[OriginRow] = []
-        for index, (key, app, address, host) in enumerate(DEMO_ORIGINS):
+        for index, (key, app) in enumerate(DEMO_ORIGINS):
             requests = random.randint(1, 40) + index * 3
             prompt = requests * random.randint(200, 1800)
             completion = requests * random.randint(40, 400)
@@ -94,8 +93,6 @@ class DemoMonitor(Monitor):
                 OriginRow(
                     virtual_key=key,
                     app=app,
-                    address=address,
-                    host=host,
                     requests=requests,
                     inflight=1 if index == 0 and random.random() < 0.5 else 0,
                     failed=0,
@@ -113,15 +110,13 @@ class DemoMonitor(Monitor):
 
     def _push_feed(self, now: float) -> None:
         if random.random() < 0.8:
-            key, app, address, host = random.choice(DEMO_ORIGINS)
+            key, app = random.choice(DEMO_ORIGINS)
             self._feed.append(
                 RequestEvent(
                     request_id=f"demo-{self._tick}-{len(self._feed)}",
                     timestamp=now,
                     virtual_key=key,
                     app=app,
-                    address=address,
-                    host=host,
                     provider=random.choice(("vllm", "strix")),
                     model=random.choice(DEMO_MODELS),
                     object_type="chat.completion",

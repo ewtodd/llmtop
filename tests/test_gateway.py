@@ -3,79 +3,7 @@ import json
 import pytest
 
 from llmtop.config import GatewayConfig
-from llmtop.gateway import (
-    BifrostClient,
-    GatewayError,
-    JournalEntry,
-    JournalIPSource,
-    _parse_journal_line,
-    client_address,
-)
-
-
-def test_parse_journal_line():
-    line = json.dumps(
-        {
-            "level": "info",
-            "http.method": "POST",
-            "http.target": "/v1/chat/completions",
-            "http.status_code": 200,
-            "http.request_duration_ms": 1234,
-            "http.remote_addr": "10.0.0.4:50772",
-            "http.user_agent": "python-httpx2/2.7.0",
-            "trace_id": "abc",
-            "request_id": "req-42",
-            "time": "2026-10-07T12:23:40-05:00",
-            "message": "request completed",
-        }
-    )
-    entry = _parse_journal_line(line)
-    assert entry is not None
-    assert entry.request_id == "req-42"
-    assert entry.address == "10.0.0.4"
-    assert entry.target == "/v1/chat/completions"
-    assert entry.status_code == 200
-
-
-def test_parse_journal_line_prefers_forwarded_for():
-    line = json.dumps(
-        {
-            "message": "request completed",
-            "request_id": "req-proxy",
-            "http.remote_addr": "10.0.0.7:56570",
-            "http.forwarded_for": "10.0.0.4",
-            "http.status_code": 200,
-            "time": "2026-10-07T16:00:13-05:00",
-        }
-    )
-    entry = _parse_journal_line(line)
-    assert entry is not None
-    assert entry.address == "10.0.0.4"
-
-
-def test_client_address_forms():
-    assert client_address("10.0.0.4, 10.0.0.7") == "10.0.0.4"
-    assert client_address("10.0.0.4:56570") == "10.0.0.4"
-    assert client_address("[2001:db8::1]:443") == "2001:db8::1"
-    assert client_address("2001:db8::1") == "2001:db8::1"
-
-
-def test_parse_journal_line_ignores_other_messages():
-    assert _parse_journal_line(json.dumps({ "message": "starting server" })) is None
-    assert _parse_journal_line("not json") is None
-
-
-def test_parse_journal_line_ipv6():
-    line = json.dumps(
-        {
-            "http.remote_addr": "[::1]:5000",
-            "request_id": "req-6",
-            "message": "request completed",
-        }
-    )
-    entry = _parse_journal_line(line)
-    assert entry is not None
-    assert entry.address == "::1"
+from llmtop.gateway import BifrostClient, GatewayError
 
 
 class FakeResponse:
@@ -112,49 +40,6 @@ def test_fetch_logs_parses_response(monkeypatch: pytest.MonkeyPatch):
     assert logs == [ { "id": "a" } ]
     assert "limit=5" in calls["url"]
     assert calls["auth"].startswith("Basic ")
-
-
-def test_journal_command_includes_explicit_ssh_options():
-    from llmtop.gateway import journal_command
-
-    config = GatewayConfig(
-        journal_ssh="oracle",
-        journal_ssh_port=2222,
-        journal_ssh_identity="~/.ssh/id_ed25519",
-        journal_ssh_proxy_jump="bastion",
-        journal_since="10 minutes ago",
-    )
-    command = journal_command(config)
-    assert command[:2] == [ "ssh", "-o" ]
-    assert "-p" in command and "2222" in command
-    assert "-J" in command and "bastion" in command
-    identity = command[command.index("-i") + 1]
-    assert identity.endswith("/.ssh/id_ed25519")
-    assert not identity.startswith("~")
-    assert command[-2] == "oracle"
-    assert "journalctl" in command[-1]
-    assert "10 minutes ago" in command[-1]
-
-
-def test_journal_command_defaults_to_alias_only():
-    from llmtop.gateway import journal_command
-
-    command = journal_command(GatewayConfig(journal_ssh="oracle"))
-    assert "-p" not in command
-    assert "-i" not in command
-    assert "-J" not in command
-    assert command[-2] == "oracle"
-
-
-def test_lookup_by_features_prefers_closest_match():
-    source = JournalIPSource(GatewayConfig())
-    older = JournalEntry("a", 100.0, "10.0.0.4", "", "ua", 200, 1.0)
-    newer = JournalEntry("b", 130.0, "10.0.0.5", "", "ua", 200, 1.0)
-    source._recent.extend([ older, newer ])
-    assert source.lookup_by_features("ua", 105.0, tolerance=20.0) is older
-    assert source.lookup_by_features("ua", 125.0, tolerance=20.0) is newer
-    assert source.lookup_by_features("ua", 200.0, tolerance=20.0) is None
-    assert source.lookup_by_features("different-ua", 105.0) is None
 
 
 def test_health_is_unauthenticated(monkeypatch: pytest.MonkeyPatch):

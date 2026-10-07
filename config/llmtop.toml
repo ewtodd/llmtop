@@ -4,12 +4,12 @@
 # falls back to the built-in defaults, which describe this cluster's
 # e-desktop -> Bifrost -> son-of-anton setup.
 
-poll_interval = 1.5          # engine scrape interval, seconds
-gateway_poll_interval = 2.0  # Bifrost /api/logs poll interval, seconds
-headline_interval_seconds = 3.0  # big prefill/decode numbers re-sample every N seconds
-history_seconds = 180.0      # rate history kept in snapshots/--dump output
+poll_interval = 1.0                       # engine scrape interval, seconds
+gateway_poll_interval = 2.0               # Bifrost /api/logs poll interval, seconds
+headline_interval_seconds = 1.0           # big prefill/decode numbers re-sample every N seconds
+history_seconds = 180.0                   # rate history kept in snapshots/--dump output
 origin_window_seconds = 300.0
-env_file = "~/.config/llmtop/bifrost.env"  # optional; KEY=VALUE for ${...} below
+env_file = "~/.config/llmtop/bifrost.env" # optional; KEY=VALUE for ${...} below
 # "auto" queries the terminal (OSC 10/11) and derives surfaces + ansi-dark/light
 # from its real colours, the same way son-of-anton does. Set a Textual theme
 # name (e.g. "textual-dark") to pin one instead.
@@ -23,18 +23,7 @@ password = "${BIFROST_ADMIN_PASSWORD}"
 log_limit = 200
 # Origin panels exclude the utility providers by default; add/remove freely.
 # include_providers = []          # empty = all
-exclude_providers = [ "embed", "oracle" ]
-# Client IPs are not in Bifrost's log database, only in its stdout; llmtop
-# follows the journal over SSH to join request ids to machine addresses.
-journal_enabled = true
-journal_ssh = "oracle"
-# Explicit ssh options for when llmtop runs under a user without your ssh
-# aliases (e.g. root); -J takes the usual [user@]host[:port] form.
-# journal_ssh_port = 2222
-# journal_ssh_identity = "~/.ssh/id_ed25519"
-# journal_ssh_proxy_jump = "bastion"
-journal_unit = "bifrost"
-journal_since = "10 minutes ago"
+exclude_providers = ["embed", "oracle"]
 
 # Provider table. Add one [[engines]] block per engine to display; embedding
 # and title-generation backends are deliberately absent.
@@ -52,14 +41,4 @@ name = "qwen3.8-flash-next (gufo)"
 kind = "llamacpp"
 url = "http://10.0.0.5:8050"
 provider = "strix"
-slots = true                 # read /slots for active-session detail
-
-[hosts]
-"10.0.0.2" = "mu"
-"10.0.0.3" = "anton"
-"10.0.0.4" = "e-desktop"
-"10.0.0.5" = "son-of-anton"
-"10.0.0.6" = "oracle"
-"10.0.0.7" = "nu"
-"10.0.0.8" = "tony"
-"127.0.0.1" = "oracle"
+slots = true                       # read /slots for active-session detail

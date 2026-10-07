@@ -7,9 +7,9 @@ two questions:
    (decode) tokens/s per engine, plus the per-request average over recent
    requests, running/waiting requests, KV-cache usage, TTFT and speculative
    decode acceptance.
-2. **Who is hitting my API?** Requests grouped by Bifrost virtual key, client
-   application, and originating machine (IP -> hostname), with token rates,
-   in-flight requests, failures and latency.
+2. **Who is hitting my API?** Requests grouped by Bifrost virtual key and
+   client application, with token rates, in-flight requests, failures and
+   latency.
 
 Stack matches [son-of-anton](https://github.com/ewtodd/son-of-anton): Python +
 [Textual](https://textual.textualize.io/) + Rich, and the default theme is
@@ -24,10 +24,10 @@ derived from the terminal the same way (see below).
  │   █   █ ███     ███ ███ █  ███    spec 51%  slots 1/2  requests 2 run 1 wait  │
  │ prefill 3s avg  decode 3s avg                                                 │
  ╰─────────────────────── qwen3.8-27b  ·  run 3 wait 1 ─────────────────────────╯
- Key         App           Machine               Req Live Fail Prefill Decode ...
- opencode    opencode      e-desktop  10.0.0.4   36    0    0     105     9.8
- soa         son-of-anton  e-desktop  10.0.0.4   32    1    0     159    22.4
- open-webui  open-webui    oracle     10.0.0.6   12    0    0      51    14.0
+ Key         App           Req Live Fail Prefill Decode ...
+ opencode    opencode       36    0    0     105     9.8
+ soa         son-of-anton   32    1    0     159    22.4
+ open-webui  open-webui     12    0    0      51    14.0
 ```
 
 ## The display
@@ -65,10 +65,13 @@ the OSC query.
 | Engine tok/s, queues, KV, TTFT, spec decode | engine `/metrics` (Prometheus) | vLLM and llama.cpp/gufo counters; no proxy involved |
 | Active sessions | llama.cpp `/slots` | optional per engine (`slots = true`) |
 | Request origins (key, app, model, tokens, latency, status) | Bifrost `GET /api/logs` | needs admin basic-auth credentials |
-| Originating machine IP | Bifrost stdout journal over SSH (`journalctl -u bifrost -f`) | Bifrost stores remote addresses only in stdout, not in the log database; llmtop joins journal lines to log rows by request id |
 
 The tool degrades gracefully: without credentials the engines panel still
-works, without SSH the origins table shows keys/apps but no machine column.
+works and the origins table explains what is missing.
+
+Origins are grouped by virtual key plus client application. The key is the
+identity: give each consumer its own Bifrost virtual key and the key names
+the origin regardless of where its backend or browser happens to run.
 
 ## Run it
 
@@ -102,9 +105,6 @@ url = "http://10.0.0.6:4002"
 username = "${BIFROST_ADMIN_USERNAME}"
 password = "${BIFROST_ADMIN_PASSWORD}"
 exclude_providers = [ "embed", "oracle" ]   # utility providers filtered out
-journal_enabled = true
-journal_ssh = "oracle"
-journal_unit = "bifrost"
 
 [[engines]]
 id = "vllm"
@@ -131,10 +131,6 @@ $ ssh -t oracle sudo cat /run/agenix/bifrost-env > ~/.config/llmtop/bifrost.env
 $ chmod 600 ~/.config/llmtop/bifrost.env
 ```
 
-The label column hostnames come from `[hosts]` in the config; the defaults map
-the current cluster (`10.0.0.4 = e-desktop`, `10.0.0.5 = son-of-anton`,
-`10.0.0.6 = oracle`, `10.0.0.7 = nu`, ...).
-
 ## Keys
 
 `q` quit, `p` pause polling, `r` refresh now, `o` cycle origin sort
@@ -147,30 +143,24 @@ src/llmtop/
   config.py       TOML loading, ${VAR} expansion, defaults
   prometheus.py   Prometheus text exposition parser
   engines.py      engine scrapers + rate/recent-request accounting
-  gateway.py      Bifrost /api/logs client and SSH journal IP source
+  gateway.py      Bifrost /api/logs client
   origins.py      request-log rows -> origin rows
   palette.py      OSC 10/11 query + terminal-derived surface generation
-  render.py       big-number glyphs, meters, history graphs, formatting
+  render.py       big-number glyphs, meters, formatting
   monitor.py      polls everything and produces a Snapshot
   demo.py         synthetic monitor for --demo and tests
   app.py          the Textual UI
-tools/            live verification scripts (rates, journal, screenshot)
+tools/            live verification scripts (rates, pty replay, screenshot)
 tests/            unit tests + Textual pilot tests
 ```
 
 ## Notes and limits
 
-- PIDs of *remote* callers do not exist on the gateway; origin is reported as
-  key + application + machine IP. Local processes on the machine running
-  llmtop can be resolved to PIDs incidentally via `/proc`, but keys/IPs are
-  the portable identity.
-- Client IPs require the journal SSH source. It uses
-  `ssh -o BatchMode=yes oracle journalctl ...`; the `oracle` user must be able
-  to read the unit journal (wheel members can on the current hosts). When
-  llmtop runs as a user without your ssh aliases (root, for the agenix
-  credentials), set `journal_ssh_port`, `journal_ssh_identity` and
-  `journal_ssh_proxy_jump` in `[gateway]`; the jump value is passed to `ssh -J`
-  as `[user@]host[:port]`.
+- The origin identity is the Bifrost virtual key plus client application.
+  Give each consumer its own key; a shared key cannot be split back apart.
+- Network addresses are deliberately not shown: behind a browser or a backend
+  the TCP peer is the backend host (e.g. open-webui on oracle), not the human,
+  which is misleading for API accounting.
 - The request feed shows `processing` rows as they appear, so in-flight
   requests are visible before they complete.
 
