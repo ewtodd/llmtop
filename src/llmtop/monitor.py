@@ -27,7 +27,7 @@ class LiveMonitor(Monitor):
     def __init__(self, config: Config) -> None:
         self.config = config
         self.runners = [
-            EngineRunner(engine, config.avg_window_seconds, config.history_seconds)
+            EngineRunner(engine, config.headline_interval_seconds, config.history_seconds)
             for engine in config.engines
             if engine.enabled
         ]

@@ -45,11 +45,11 @@ class StatusBar(Static):
 
 
 class EngineCard(Static):
-    def __init__(self, state: EngineState, avg_window: float = 60.0) -> None:
+    def __init__(self, state: EngineState, headline_interval: float = 3.0) -> None:
         super().__init__(id=f"engine-{state.id}")
         self.engine_id = state.id
         self._state = state
-        self._avg_window = avg_window
+        self._headline_interval = headline_interval
         self._redraw()
 
     def update_state(self, state: EngineState) -> None:
@@ -72,7 +72,7 @@ class EngineCard(Static):
         self.border_subtitle = f"{models}  ·  run {state.running} wait {state.waiting}"
         self.set_class(state.ok, "ok")
         self.set_class(not state.ok, "down")
-        self.update(engine_card_renderable(state, width, self._avg_window))
+        self.update(engine_card_renderable(state, width, self._headline_interval))
 
 
 class OriginTable(DataTable):
@@ -230,7 +230,7 @@ class LlmTopApp(App):
         for state in engines:
             card = cards.pop(state.id, None)
             if card is None:
-                panel.mount(EngineCard(state, self.config.avg_window_seconds))
+                panel.mount(EngineCard(state, self.config.headline_interval_seconds))
             else:
                 card.update_state(state)
         for stale in cards.values():

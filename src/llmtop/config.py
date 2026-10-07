@@ -60,7 +60,7 @@ class Config:
     hosts: dict[str, str] = field(default_factory=dict)
     poll_interval: float = 1.5
     gateway_poll_interval: float = 2.0
-    avg_window_seconds: float = 3.0
+    headline_interval_seconds: float = 3.0
     history_seconds: float = 180.0
     origin_window_seconds: float = 300.0
     env_file: str = "~/.config/llmtop/bifrost.env"
@@ -136,7 +136,7 @@ def _apply_raw(config: Config, raw: dict[str, Any]) -> Config:
     scalar_keys = (
         "poll_interval",
         "gateway_poll_interval",
-        "avg_window_seconds",
+        "headline_interval_seconds",
         "history_seconds",
         "origin_window_seconds",
         "env_file",

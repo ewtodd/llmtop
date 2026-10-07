@@ -17,11 +17,13 @@ derived from the terminal the same way (see below).
 
 ```
  ╭─ qwen3.8-27b (vLLM) ─────────────────────────────────────────────────────────╮
- │ ██  ██  49.6      DECODE   ████████████░░░░░░░░    50.7                      │
- │  █  █             PREFILL  ██████████████████░░   454                        │
- │ ██  ██            KV       ████████░░░░░░░░░░░░    40%                       │
- │  █  █    tok/s    prefill avg 474 tok/s   ttft 711ms                         │
- ╰─ 3s avg ───────────────────────── qwen3.8-27b · run 3 wait 1 ───────────────╯
+ │ █ █ █ █ ███     ███ ███    ███    PREFILL ██████████████████████░░   452     │
+ │ █ █ █ █ █ █     █   █ █    █      DECODE  ████████████████████████  51.7     │
+ │ ███ ███ ███     ███ █ █    ███    KV      ██████████░░░░░░░░░░░░░░   40%     │
+ │   █   █ █ █       █ █ █      █    ttft 626ms                                  │
+ │   █   █ ███     ███ ███ █  ███    spec 51%  slots 1/2  requests 2 run 1 wait  │
+ │ prefill 3s avg  decode 3s avg                                                 │
+ ╰─────────────────────── qwen3.8-27b  ·  run 3 wait 1 ─────────────────────────╯
  Key         App           Machine               Req Live Fail Prefill Decode ...
  opencode    opencode      e-desktop  10.0.0.4   36    0    0     105     9.8
  soa         son-of-anton  e-desktop  10.0.0.4   32    1    0     159    22.4
@@ -30,12 +32,13 @@ derived from the terminal the same way (see below).
 
 ## The display
 
-- One card per engine: the **large number is the recent-request average**
-  generation speed over the configured window (`avg_window_seconds`, default
-  3 s; the label shows it). It uses per-request compute time rather than wall
-  time, so idle gaps don't dilute it. Below are live DECODE / PREFILL /
-  KV-cache bars plus prefill average, TTFT, speculative-decode acceptance,
-  slots and queue. Cards keep the engine name, model and status.
+- One card per engine with **two large numbers: prefill first, decode second**.
+  Each is the instantaneous rate over the last `headline_interval_seconds`
+  (default 3 s; the label shows it), re-sampled on that cadence and held in
+  between. Rates use per-request compute time rather than wall time.
+- Next to them: absolute live PREFILL / DECODE / KV-cache bars, then `ttft`
+  and `spec` / `slots` / `requests`. Speculative-decode acceptance and TTFT
+  are re-sampled on the same interval, not averaged over the process lifetime.
 - Colors follow the reference nvtop-style layout: decode cyan, prefill
   magenta, KV green/yellow/red at the usual thresholds.
 - Everything is laid out as fixed-width lines, so narrow terminals truncate
@@ -92,7 +95,7 @@ by default.
 
 ```toml
 poll_interval = 1.5
-avg_window_seconds = 3.0
+headline_interval_seconds = 3.0
 
 [gateway]
 url = "http://10.0.0.6:4002"

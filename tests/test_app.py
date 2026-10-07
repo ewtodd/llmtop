@@ -66,7 +66,8 @@ def test_app_short_terminal_keeps_cards_intact():
             assert "qwen3.8-27b (vLLM)" in text
             assert "qwen3.8-flash-next (gufo)" in text
             assert text.count("DECODE") == len(config.engines)
-            assert text.count("prefill avg") == len(config.engines)
+            assert text.count("prefill 3s") == len(config.engines)
+            assert text.count("decode 3s") == len(config.engines)
 
     asyncio.run(run(100, 30))
     asyncio.run(run(80, 24))

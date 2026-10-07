@@ -7,7 +7,7 @@ from llmtop.config import EngineConfig
 from llmtop.engines import EngineReading, EngineRunner
 
 
-def _reading(ts, prompt=0.0, compute=0.0, output=0.0, psec=0.0, osec=0.0):
+def _reading(ts, prompt=0.0, compute=0.0, output=0.0, psec=0.0, osec=0.0, draft=None, accepted=None):
     return EngineReading(
         ts=ts,
         ok=True,
@@ -16,44 +16,54 @@ def _reading(ts, prompt=0.0, compute=0.0, output=0.0, psec=0.0, osec=0.0):
         output_tokens=output,
         prefill_seconds=psec,
         output_seconds=osec,
+        spec_draft_tokens=draft,
+        spec_accepted_tokens=accepted,
     )
 
 
-def _runner(monkeypatch, readings, window=10.0):
+def _runner(monkeypatch, readings, headline_interval=10.0):
     iterator = iter(readings)
     monkeypatch.setattr(engines, "fetch_reading", lambda config, timeout=1.5: next(iterator))
     config = EngineConfig(id="test", name="Test", kind="vllm", url="http://test")
-    return EngineRunner(config, avg_window=window, history_seconds=60.0)
+    return EngineRunner(config, headline_interval=headline_interval, history_seconds=60.0)
 
 
-def test_instant_and_recent_rates(monkeypatch):
+def test_instant_rates_and_headline_sampling(monkeypatch):
     runner = _runner(
         monkeypatch,
         [
             _reading(100.0),
             _reading(102.0, prompt=200, compute=200, output=40, psec=1.0, osec=1.0),
             _reading(106.0, prompt=400, compute=400, output=100, psec=2.0, osec=2.0),
+            _reading(107.0, prompt=400, compute=400, output=100, psec=2.0, osec=2.0),
         ],
+        headline_interval=3.0,
     )
     first = runner.poll()
     assert first.prefill_now == 0.0
-    assert first.decode_now == 0.0
+    assert first.prefill_headline == 0.0
 
     second = runner.poll()
     assert second.prefill_now == pytest.approx(100.0)
     assert second.decode_now == pytest.approx(20.0)
-    assert second.prefill_avg == pytest.approx(200.0)
-    assert second.decode_avg == pytest.approx(40.0)
+    # 2s since the headline reference: not sampled yet.
+    assert second.prefill_headline == 0.0
+    assert second.decode_headline == 0.0
 
     third = runner.poll()
     assert third.prefill_now == pytest.approx(50.0)
     assert third.decode_now == pytest.approx(15.0)
-    assert third.prefill_avg == pytest.approx(200.0)
-    assert third.decode_avg == pytest.approx(50.0)
-    assert len(third.decode_history) == 3
+    # Sampled at 100..106: compute-time rates, not wall-time averages.
+    assert third.prefill_headline == pytest.approx(200.0)
+    assert third.decode_headline == pytest.approx(50.0)
+
+    fourth = runner.poll()
+    assert fourth.prefill_headline == pytest.approx(200.0)
+    assert fourth.decode_headline == pytest.approx(50.0)
+    assert len(fourth.decode_history) == 4
 
 
-def test_counter_reset_clears_window(monkeypatch):
+def test_counter_reset_resets_headline(monkeypatch):
     runner = _runner(
         monkeypatch,
         [
@@ -65,7 +75,25 @@ def test_counter_reset_clears_window(monkeypatch):
     state = runner.poll()
     assert state.prefill_now == 0.0
     assert state.decode_now == 0.0
-    assert state.prefill_avg == 0.0
+    assert state.prefill_headline == 0.0
+
+
+def test_spec_acceptance_is_sampled_per_headline_interval(monkeypatch):
+    runner = _runner(
+        monkeypatch,
+        [
+            _reading(100.0, draft=100, accepted=10),
+            _reading(103.0, draft=400, accepted=80),
+            _reading(106.0, draft=700, accepted=110),
+        ],
+        headline_interval=3.0,
+    )
+    runner.poll()
+    middle = runner.poll()
+    assert middle.spec_accept == pytest.approx((80 - 10) / (400 - 100))
+    state = runner.poll()
+    # Lifetime would be 110/700; the headline only counts the last 3s.
+    assert state.spec_accept == pytest.approx((110 - 80) / (700 - 400))
 
 
 def test_back_to_back_polls_do_not_spike(monkeypatch):

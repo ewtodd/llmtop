@@ -175,14 +175,21 @@ def _unique(values) -> list[str]:
 
 
 class EngineRunner:
-    """Keeps per-engine state between polls and turns readings into rates."""
+    """Keeps per-engine state between polls and turns readings into rates.
 
-    def __init__(self, config: EngineConfig, avg_window: float, history_seconds: float) -> None:
+    Two cadences: ``_now`` rates are wall-clock deltas between consecutive
+    polls (used by the live bars), while the headline numbers are sampled
+    every ``headline_interval`` seconds and held in between, so the big
+    number is an instantaneous rate over the last interval, not an average.
+    """
+
+    def __init__(self, config: EngineConfig, headline_interval: float, history_seconds: float) -> None:
         self.config = config
-        self.avg_window = avg_window
+        self.headline_interval = headline_interval
         self.history_seconds = history_seconds
-        self._readings: deque[EngineReading] = deque()
         self._last_reading: EngineReading | None = None
+        self._headline_reading: EngineReading | None = None
+        self._headline: dict[str, float | None] = self._empty_headline()
         self._prefill_history: deque[tuple[float, float]] = deque()
         self._decode_history: deque[tuple[float, float]] = deque()
         self._last_state = self._empty_state()
@@ -204,9 +211,8 @@ class EngineRunner:
             return state
 
         if self._counter_reset(reading):
-            self._readings.clear()
-        self._readings.append(reading)
-        self._trim(reading.ts)
+            self._headline_reading = None
+            self._headline = self._empty_headline()
 
         state = self._build_state(reading)
         self._record_history(reading.ts, state)
@@ -225,11 +231,6 @@ class EngineRunner:
             or reading.output_seconds < previous.output_seconds
         )
 
-    def _trim(self, now: float) -> None:
-        cutoff = now - max(self.avg_window * 2, 30.0)
-        while len(self._readings) > 2 and self._readings[0].ts < cutoff:
-            self._readings.popleft()
-
     def _build_state(self, reading: EngineReading) -> EngineState:
         state = EngineState(
             id=self.config.id,
@@ -247,7 +248,6 @@ class EngineRunner:
             total_slots=reading.total_slots,
             device_lost=reading.device_lost,
             last_update=reading.ts,
-            spec_accept=_ratio(reading.spec_accepted_tokens, reading.spec_draft_tokens),
         )
 
         previous = self._last_reading
@@ -259,35 +259,45 @@ class EngineRunner:
                 state.prefill_now = max(reading.prefill_tokens - previous.prefill_tokens, 0.0) / elapsed
                 state.decode_now = max(reading.output_tokens - previous.output_tokens, 0.0) / elapsed
 
-        oldest = self._window_start(reading.ts)
-        if oldest is not None and oldest.ts < reading.ts:
-            state.prefill_avg = _average_rate(
-                reading.prefill_compute_tokens - oldest.prefill_compute_tokens,
-                reading.prefill_seconds - oldest.prefill_seconds,
-                reading.ts - oldest.ts,
-            )
-            state.decode_avg = _average_rate(
-                reading.output_tokens - oldest.output_tokens,
-                reading.output_seconds - oldest.output_seconds,
-                reading.ts - oldest.ts,
-            )
-            state.ttft_ms = _window_ttft_ms(oldest, reading)
-        elif self._readings:
-            first = self._readings[0]
-            state.ttft_ms = _window_ttft_ms(first, reading)
-
+        self._update_headline(reading)
+        state.prefill_headline = self._headline["prefill"] or 0.0
+        state.decode_headline = self._headline["decode"] or 0.0
+        state.ttft_ms = self._headline["ttft_ms"]
+        state.spec_accept = self._headline["spec_accept"]
         return state
 
-    def _window_start(self, now: float) -> EngineReading | None:
-        cutoff = now - self.avg_window
-        candidate: EngineReading | None = None
-        for reading in self._readings:
-            if reading.ts >= cutoff:
-                candidate = reading
-                break
-        if candidate is None and self._readings:
-            candidate = self._readings[0]
-        return candidate
+    def _update_headline(self, reading: EngineReading) -> None:
+        if self._headline_reading is None:
+            self._headline_reading = reading
+            return
+        elapsed = reading.ts - self._headline_reading.ts
+        if elapsed < self.headline_interval:
+            return
+        previous = self._headline_reading
+        accept = _ratio(
+            _delta(reading.spec_accepted_tokens, previous.spec_accepted_tokens),
+            _delta(reading.spec_draft_tokens, previous.spec_draft_tokens),
+        )
+        if accept is None:
+            accept = _ratio(reading.spec_accepted_tokens, reading.spec_draft_tokens)
+        self._headline = {
+            "prefill": _average_rate(
+                reading.prefill_compute_tokens - previous.prefill_compute_tokens,
+                reading.prefill_seconds - previous.prefill_seconds,
+                elapsed,
+            ),
+            "decode": _average_rate(
+                reading.output_tokens - previous.output_tokens,
+                reading.output_seconds - previous.output_seconds,
+                elapsed,
+            ),
+            "ttft_ms": _window_ttft_ms(previous, reading),
+            "spec_accept": accept,
+        }
+        self._headline_reading = reading
+
+    def _empty_headline(self) -> dict[str, float | None]:
+        return { "prefill": 0.0, "decode": 0.0, "ttft_ms": None, "spec_accept": None }
 
     def _record_history(self, now: float, state: EngineState) -> None:
         cutoff = now - self.history_seconds
@@ -356,3 +366,9 @@ def _ratio(accepted: float | None, drafted: float | None) -> float | None:
     if accepted is None or drafted is None or drafted <= 0:
         return None
     return accepted / drafted
+
+
+def _delta(current: float | None, previous: float | None) -> float | None:
+    if current is None or previous is None:
+        return None
+    return current - previous

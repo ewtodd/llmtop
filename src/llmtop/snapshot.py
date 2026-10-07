@@ -21,8 +21,8 @@ class EngineState:
     context_limit: int | None = None
     prefill_now: float = 0.0
     decode_now: float = 0.0
-    prefill_avg: float = 0.0
-    decode_avg: float = 0.0
+    prefill_headline: float = 0.0
+    decode_headline: float = 0.0
     ttft_ms: float | None = None
     spec_accept: float | None = None
     active_slots: int = 0

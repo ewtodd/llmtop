@@ -25,10 +25,10 @@ def _state(**overrides) -> EngineState:
         ok=True,
         models=[ "m" ],
         decode_history=[ 10.0, 20.0, 30.0, 24.0, 12.0 ],
-        decode_avg=43.66,
+        decode_headline=43.66,
         decode_now=40.0,
         prefill_now=420.0,
-        prefill_avg=410.0,
+        prefill_headline=410.0,
         kv_usage=0.4,
         ttft_ms=150.0,
         spec_accept=0.55,
@@ -56,12 +56,20 @@ def test_headline_number_matches_reference_format():
     assert headline_number(1234.0) == "1234"
 
 
-def test_card_label_shows_average_window():
-    card = engine_card_renderable(_state(), width=100, avg_window=3.0)
+def test_card_label_shows_headline_interval():
+    card = engine_card_renderable(_state(), width=100, headline_interval=3.0)
     label = card.renderables[-1].plain
-    assert "3s avg" in label
-    card = engine_card_renderable(_state(), width=100, avg_window=120.0)
-    assert "2m avg" in card.renderables[-1].plain
+    assert "prefill 3s" in label
+    assert "decode 3s" in label
+    card = engine_card_renderable(_state(), width=100, headline_interval=120.0)
+    assert "prefill 2m" in card.renderables[-1].plain
+
+
+def test_card_columns_stable_across_prefill_magnitudes():
+    small = engine_card_renderable(_state(prefill_headline=448.0), width=100)
+    large = engine_card_renderable(_state(prefill_headline=4480.0), width=100)
+    assert small.renderables[0].plain.index("PREFILL") == large.renderables[0].plain.index("PREFILL")
+    assert small.renderables[1].plain.index("DECODE") == large.renderables[1].plain.index("DECODE")
 
 
 def test_meter_line_fills_proportionally():
@@ -105,7 +113,7 @@ def test_engine_card_online_and_offline():
 
 def test_engine_card_never_exceeds_width():
     # Regression: a card wider than its widget used to wrap and corrupt the screen.
-    state = _state(prefill_avg=987654.0, ttft_ms=12345.6, decode_history=[ 1e6, 2e6 ])
+    state = _state(prefill_headline=987654.0, ttft_ms=12345.6, decode_history=[ 1e6, 2e6 ])
     for width in (40, 60, 80, 100, 140):
         card = engine_card_renderable(state, width=width)
         for line in card.renderables:
@@ -115,9 +123,10 @@ def test_engine_card_never_exceeds_width():
 def test_engine_card_survives_non_finite_values():
     card = engine_card_renderable(
         _state(
-            decode_avg=float("nan"),
+            decode_headline=float("nan"),
             decode_now=float("inf"),
             prefill_now=float("-inf"),
+            prefill_headline=float("inf"),
             kv_usage=float("nan"),
             ttft_ms=None,
             spec_accept=float("nan"),

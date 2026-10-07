@@ -19,6 +19,7 @@ from .snapshot import EngineState
 
 BIG_ROWS = 5
 CARD_ROWS = BIG_ROWS + 1
+BIG_CHAR_WIDTH = 4  # three glyph columns plus one separator
 
 BIG_GLYPHS: dict[str, tuple[str, str, str, str, str]] = {
     "0": ("███", "█ █", "█ █", "█ █", "███"),
@@ -110,7 +111,7 @@ def kv_style(usage: float | None) -> str:
     return "green"
 
 
-def engine_card_renderable(state: EngineState, width: int = 100, avg_window: float = 60.0) -> Group:
+def engine_card_renderable(state: EngineState, width: int = 100, headline_interval: float = 3.0) -> Group:
     width = max(width, 24)
     if not state.ok:
         lines = [
@@ -120,23 +121,33 @@ def engine_card_renderable(state: EngineState, width: int = 100, avg_window: flo
         ]
         return Group(*[ _truncate(line, width) for line in lines ])
 
-    big = big_number_lines(headline_number(state.decode_avg))
-    big.append(Text(f"tok/s  {window_label(avg_window)} avg", style="dim"))
-    while len(big) < CARD_ROWS:
-        big.append(Text(""))
-    big_width = min(max(len(line.plain) for line in big), width)
+    prefill_big = _big_column("prefill", state.prefill_headline, headline_interval)
+    decode_big = _big_column("decode", state.decode_headline, headline_interval)
+    # Reserve room for four prefill digits and five decode glyphs so the
+    # columns don't shift as values cross 1000, and keep a wide gap between
+    # them for the same reason.
+    prefill_width = max(max(len(line.plain) for line in prefill_big), 4 * BIG_CHAR_WIDTH)
+    decode_width = max(max(len(line.plain) for line in decode_big), 5 * BIG_CHAR_WIDTH)
 
-    meter_width = max(8, min(24, width - big_width - 6))
+    meter_width = max(8, min(24, width - prefill_width - decode_width - 12))
     meters = _meter_rows(state, meter_width)
 
     lines: list[Text] = []
     for index in range(CARD_ROWS):
         line = Text()
-        line.append_text(big[index])
-        line.append(" " * max(0, big_width - len(big[index].plain) + 2))
+        line.append_text(prefill_big[index])
+        line.append(" " * max(0, prefill_width - len(prefill_big[index].plain) + 4))
+        line.append_text(decode_big[index])
+        line.append(" " * max(0, decode_width - len(decode_big[index].plain) + 4))
         line.append_text(meters[index])
         lines.append(_truncate(line, width))
     return Group(*lines)
+
+
+def _big_column(label: str, value: float, headline_interval: float) -> list[Text]:
+    lines = big_number_lines(headline_number(value))
+    lines.append(Text(f"{label} {window_label(headline_interval)}", style="dim"))
+    return lines
 
 
 def _truncate(text: Text, width: int) -> Text:
@@ -147,12 +158,12 @@ def _truncate(text: Text, width: int) -> Text:
 
 def _meter_rows(state: EngineState, width: int) -> list[Text]:
     decode_scale = nice_max(max([ *state.decode_history[-48:], 10.0 ]))
-    prefill_scale = nice_max(max(finite(state.prefill_now), finite(state.prefill_avg), 100.0))
+    prefill_scale = nice_max(max(finite(state.prefill_now), finite(state.prefill_headline), 100.0))
     kv_value = finite(state.kv_usage)
     kv_label = f"{kv_value * 100:.0f}%" if state.kv_usage is not None else "n/a"
     rows = [
-        meter_line("DECODE", state.decode_now, decode_scale, width, "bold cyan"),
         meter_line("PREFILL", state.prefill_now, prefill_scale, width, "magenta"),
+        meter_line("DECODE", state.decode_now, decode_scale, width, "bold cyan"),
         meter_line("KV", kv_value, 1.0, width, kv_style(state.kv_usage), value_text=kv_label),
         _stats_line(state),
         _detail_line(state),
@@ -163,9 +174,7 @@ def _meter_rows(state: EngineState, width: int) -> list[Text]:
 
 def _stats_line(state: EngineState) -> Text:
     text = Text()
-    text.append("prefill avg ", style="dim")
-    text.append(f"{format_rate(state.prefill_avg)} tok/s", style="magenta")
-    text.append("   ttft ", style="dim")
+    text.append("ttft ", style="dim")
     text.append(format_ms(state.ttft_ms), style="")
     return text
 
