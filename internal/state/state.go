@@ -180,6 +180,21 @@ func (s *State) Snapshot(now time.Time) Snapshot {
 	snap.Engines, snap.Standby = s.engineViews(now)
 	snap.Hosts = s.hostViews(now)
 	snap.Callers, snap.Feed = s.callerViews(now)
+	if snap.Hosts == nil {
+		snap.Hosts = []HostView{}
+	}
+	if snap.Engines == nil {
+		snap.Engines = []EngineView{}
+	}
+	if snap.Standby == nil {
+		snap.Standby = []StandbyView{}
+	}
+	if snap.Callers == nil {
+		snap.Callers = []CallerView{}
+	}
+	if snap.Feed == nil {
+		snap.Feed = []FeedView{}
+	}
 	return snap
 }
 
@@ -425,3 +440,6 @@ func (s *State) callerViews(now time.Time) ([]CallerView, []FeedView) {
 	}
 	return callers, feed
 }
+
+// MaitredURL is the gateway this state polls.
+func (s *State) MaitredURL() string { return s.cfg.Maitred }
