@@ -51,18 +51,23 @@ func DemoSnapshot(now time.Time) state.Snapshot {
 		Name: "embed", Display: "EmbeddingGemma 2", Kind: "health", Host: "fiona", Addr: "10.0.0.6:8262", Up: true, Tiny: true,
 	}
 
-	gpu := func(label, driver, pci string, busy, used, size float64, kind string, temps map[string]float64, power, capW, fan, clock float64) state.GPUView {
+	gpu := func(label, driver, pci string, busy, used, size float64, kind string, temps, crits map[string]float64, power, capW, fan, clock float64) state.GPUView {
 		return state.GPUView{Label: label, Driver: driver, PCI: pci, Busy: some(busy), MemKind: kind, MemUsed: some(used), MemSize: some(size),
-			Temps: temps, Power: some(power), Cap: some(capW), Fan: some(fan), Clock: some(clock)}
+			Temps: temps, Crit: crits, Power: some(power), Cap: some(capW), Fan: some(fan), Clock: some(clock)}
 	}
 	const G = 1 << 30
 	jitter := func(base, amp, period, phase float64) float64 { return base + amp*(wave(period, phase)-0.5) }
+	// crits are what the R9700s report (edge/junction 110, mem 108): the demo
+	// shows the same warning bands the live cards get. The iGPU and the xe
+	// card export no limits and keep the usual ones.
 	r0 := gpu("R9700 #0", "amdgpu", "c7:00.0", jitter(97, 6, 3, 0), 30.8*G, 31.9*G, "vram",
-		map[string]float64{"edge": jitter(66, 4, 9, 0), "junction": jitter(88, 6, 9, 0), "mem": 82}, jitter(222, 12, 5, 1), 230, 3112, 3395)
+		map[string]float64{"edge": jitter(66, 4, 9, 0), "junction": jitter(88, 6, 9, 0), "mem": 82},
+		map[string]float64{"edge": 110, "junction": 110, "mem": 108}, jitter(222, 12, 5, 1), 230, 3112, 3395)
 	r1 := gpu("R9700 #1", "amdgpu", "cc:00.0", jitter(99, 2, 4, 1), 30.7*G, 31.9*G, "vram",
-		map[string]float64{"edge": 75, "junction": jitter(101, 3, 7, 1), "mem": 94}, jitter(228, 8, 4, 0), 230, 3867, 2709)
+		map[string]float64{"edge": 75, "junction": jitter(101, 3, 7, 1), "mem": 94},
+		map[string]float64{"edge": 110, "junction": 110, "mem": 108}, jitter(228, 8, 4, 0), 230, 3867, 2709)
 	igpu := gpu("Raphael", "amdgpu", "d0:00.0", jitter(8, 6, 6, 2), 114.5*G, 124*G, "gtt",
-		map[string]float64{"edge": 62}, 14, 0, 0, 800)
+		map[string]float64{"edge": 62}, nil, 14, 0, 0, 800)
 	igpu.Cap, igpu.Fan = model.Opt{}, model.Opt{}
 	xe := state.GPUView{Label: "Arc B580", Driver: "xe", PCI: "03:00.0", MemKind: "",
 		Temps: map[string]float64{"pkg": 72, "vram": 76}, Power: some(jitter(60, 10, 6, 0))}

@@ -118,6 +118,7 @@ type GPUView struct {
 	MemUsed model.Opt          `json:"mem_used_bytes"`
 	MemSize model.Opt          `json:"mem_total_bytes"`
 	Temps   map[string]float64 `json:"temps_c"`
+	Crit    map[string]float64 `json:"temps_crit_c,omitempty"` // sensors' critical limits, when the cards export them
 	Power   model.Opt          `json:"power_w"`
 	Cap     model.Opt          `json:"power_cap_w"`
 	Fan     model.Opt          `json:"fan_rpm"`

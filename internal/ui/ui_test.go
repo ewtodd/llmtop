@@ -277,3 +277,38 @@ func TestPlaceholderCard(t *testing.T) {
 		t.Fatalf("the placeholder is as tall as a card:\n%s", stripANSI(full))
 	}
 }
+
+// TestTempStyle checks the temperature colours: the card's own critical limit
+// sets warn 20° under and bad 10° under it; a sensor without one keeps the
+// usual 90/100 (95/105 for memory).
+func TestTempStyle(t *testing.T) {
+	v := &view{th: ColorTheme()}
+	g := state.GPUView{Crit: map[string]float64{"edge": 110, "junction": 110, "mem": 108}}
+	cases := []struct {
+		g      state.GPUView
+		sensor string
+		c      float64
+		band   string // ok, warn or err
+	}{
+		{g, "edge", 79, "ok"},
+		{g, "edge", 90, "warn"}, // 110 - 20
+		{g, "junction", 99, "warn"},
+		{g, "junction", 101, "err"}, // 110 - 10
+		{g, "mem", 87, "ok"},
+		{g, "mem", 88, "warn"}, // 108 - 20
+		{g, "mem", 99, "err"},  // 108 - 10
+		{state.GPUView{}, "pkg", 71, "ok"},
+		{state.GPUView{}, "pkg", 90, "warn"},
+		{state.GPUView{}, "pkg", 101, "err"},
+		{state.GPUView{}, "vram", 94, "ok"},
+		{state.GPUView{}, "vram", 95, "warn"},
+		{state.GPUView{}, "vram", 105, "err"},
+		{state.GPUView{}, "edge", 89, "ok"}, // the usual band without a limit
+	}
+	bands := map[string]lipgloss.Style{"ok": v.th.OK, "warn": v.th.Warn, "err": v.th.Err}
+	for _, c := range cases {
+		if got := v.tempStyle(c.g, c.sensor, c.c).Render("42"); got != bands[c.band].Render("42") {
+			t.Errorf("%s %.0f: band is not %s: %q", c.sensor, c.c, c.band, got)
+		}
+	}
+}

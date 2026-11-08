@@ -190,12 +190,18 @@ func (v *view) header() string {
 
 // ---- hosts and GPUs
 
-// tempStyle colours a temperature by its sensor's usual limits: edge, junction
-// and package warn at 90 and alarm at 100; memory and VRAM at 95 and 105.
-func (v *view) tempStyle(sensor string, c float64) lipgloss.Style {
+// tempStyle colours a temperature with the theme's traffic lights: green good,
+// yellow warn, red bad. A card that exports a sensor's critical limit (amdgpu
+// does: node_hwmon_temp_crit_celsius) sets the band from it, warn 20° under
+// the limit and bad 10° under. Without one the usual limits hold: edge,
+// junction and package warn at 90 and bad at 100; memory and VRAM at 95, 105.
+func (v *view) tempStyle(g state.GPUView, sensor string, c float64) lipgloss.Style {
 	warn, bad := 90.0, 100.0
 	if sensor == "mem" || sensor == "vram" {
 		warn, bad = 95, 105
+	}
+	if crit, ok := g.Crit[sensor]; ok {
+		warn, bad = crit-20, crit-10
 	}
 	switch {
 	case c >= bad:
@@ -203,7 +209,7 @@ func (v *view) tempStyle(sensor string, c float64) lipgloss.Style {
 	case c >= warn:
 		return v.th.Warn
 	}
-	return v.th.Plain
+	return v.th.OK
 }
 
 var tempOrder = []struct{ key, short string }{
@@ -214,7 +220,7 @@ func (v *view) temps(g state.GPUView) string {
 	var parts []string
 	for _, t := range tempOrder {
 		if c, ok := g.Temps[t.key]; ok {
-			parts = append(parts, v.th.Mut.Render(t.short)+" "+v.tempStyle(t.key, c).Render(fmt.Sprintf("%.0f°C", c)))
+			parts = append(parts, v.th.Mut.Render(t.short)+" "+v.tempStyle(g, t.key, c).Render(fmt.Sprintf("%.0f°C", c)))
 		}
 	}
 	if len(parts) == 0 {

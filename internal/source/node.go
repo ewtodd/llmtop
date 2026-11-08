@@ -58,7 +58,7 @@ func ParseNode(s *prom.Set, at time.Time) model.Node {
 		return m
 	}
 	temps, powerAvg, power := byChip("node_hwmon_temp_celsius"), byChip("node_hwmon_power_average_watt"), byChip("node_hwmon_power_watt")
-	energy, caps, fans, freqs := byChip("node_hwmon_energy_joule_total"), byChip("node_hwmon_power_cap_watt"), byChip("node_hwmon_fan_rpm"), byChip("node_hwmon_freq_freq_mhz")
+	crits, energy, caps, fans, freqs := byChip("node_hwmon_temp_crit_celsius"), byChip("node_hwmon_energy_joule_total"), byChip("node_hwmon_power_cap_watt"), byChip("node_hwmon_fan_rpm"), byChip("node_hwmon_freq_freq_mhz")
 
 	for _, smp := range s.Samples("node_hwmon_chip_names") {
 		driver := smp.Labels["chip_name"]
@@ -66,13 +66,18 @@ func ParseNode(s *prom.Set, at time.Time) model.Node {
 			continue
 		}
 		chip := smp.Labels["chip"]
-		g := model.GPU{Chip: chip, PCI: ChipPCI(chip), Driver: driver, Temps: map[string]float64{}}
+		g := model.GPU{Chip: chip, PCI: ChipPCI(chip), Driver: driver, Temps: map[string]float64{}, Crit: map[string]float64{}}
 		for _, t := range temps[chip] {
 			label := labels[[2]string{chip, t.Labels["sensor"]}]
 			if label == "" {
 				label = t.Labels["sensor"]
 			}
 			g.Temps[label] = t.Value
+			for _, x := range crits[chip] {
+				if x.Labels["sensor"] == t.Labels["sensor"] {
+					g.Crit[label] = x.Value
+				}
+			}
 		}
 		for _, src := range [][]prom.Sample{powerAvg[chip], power[chip]} {
 			if len(src) > 0 {

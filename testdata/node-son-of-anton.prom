@@ -42,6 +42,13 @@ node_hwmon_temp_celsius{chip="0000:c6:00_0_0000:c7:00_0",sensor="temp3"} 76
 node_hwmon_temp_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp1"} 75
 node_hwmon_temp_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp2"} 101
 node_hwmon_temp_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp3"} 78
+node_hwmon_temp_crit_celsius{chip="0000:c6:00_0_0000:c7:00_0",sensor="temp1"} 110
+node_hwmon_temp_crit_celsius{chip="0000:c6:00_0_0000:c7:00_0",sensor="temp2"} 110
+node_hwmon_temp_crit_celsius{chip="0000:c6:00_0_0000:c7:00_0",sensor="temp3"} 108
+node_hwmon_temp_crit_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp1"} 110
+node_hwmon_temp_crit_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp2"} 110
+node_hwmon_temp_crit_celsius{chip="0000:cb:00_0_0000:cc:00_0",sensor="temp3"} 108
+node_hwmon_temp_crit_hyst_celsius{chip="0000:c6:00_0_0000:c7:00_0",sensor="temp1"} -273.15
 node_hwmon_temp_celsius{chip="pci0000:00_0000:00:18_3",sensor="temp1"} 80.5
 node_cpu_seconds_total{cpu="0",mode="idle"} 178206.65
 node_cpu_seconds_total{cpu="0",mode="iowait"} 55.47

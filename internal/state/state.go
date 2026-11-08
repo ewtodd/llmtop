@@ -499,7 +499,7 @@ func (s *State) fillHost(v *HostView, host string, ns *nodeState) {
 	gpus := slices.Clone(n.GPUs)
 	slices.SortFunc(gpus, func(a, b model.GPU) int { return cmp.Compare(a.PCI, b.PCI) })
 	for _, g := range gpus {
-		gv := GPUView{Label: gpuLabel(s.cfg, host, g), Driver: g.Driver, PCI: g.PCI, Temps: g.Temps,
+		gv := GPUView{Label: gpuLabel(s.cfg, host, g), Driver: g.Driver, PCI: g.PCI, Temps: g.Temps, Crit: g.Crit,
 			Power: g.Power, Cap: g.Cap, Fan: g.Fan, Clock: g.Clock}
 		if !gv.Power.OK {
 			if w, ok := ns.rates.Power[g.Chip]; ok {

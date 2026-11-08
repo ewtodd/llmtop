@@ -84,6 +84,7 @@ type GPU struct {
 	Driver string // amdgpu, xe, i915
 
 	Temps map[string]float64 // by sensor label: edge, junction, mem, pkg, vram
+	Crit  map[string]float64 // those sensors' critical limits, when the chip exports them
 	Power Opt                // watts, when the chip reports power directly
 	// Energy is the xe energy counter in joules: power is its rate.
 	Energy Opt

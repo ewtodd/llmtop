@@ -162,6 +162,9 @@ Field rules:
 Already deployed on every host. llmtop reads `node_hwmon_*` (GPU temps, power, fans, clocks; chips are
 labelled `<bridge>_<device>` with `.` written `_`, e.g. `0000:cb:00_0_0000:cc:00_0` for device
 `0000:cc:00.0`), `node_cpu_seconds_total`, `node_memory_MemTotal_bytes`, `node_memory_MemAvailable_bytes`.
+A sensor's critical limit, `node_hwmon_temp_crit_celsius{chip,sensor}` when the driver exports it
+(amdgpu does: 110 °C edge and junction, 108 °C memory on the R9700s), sets that temperature's
+warning colours: yellow 20° under the limit, red 10° under.
 To be deployed with llmtop (in /etc/nixos): the `drm` collector (`node_drm_gpu_busy_percent{card}`,
 `node_drm_memory_{vram,gtt}_{size,used}_bytes{card}`, amdgpu only) and a textfile metric mapping DRM
 cards to PCI devices: `drm_card_device_info{card="card1",device="0000:cc:00.0",driver="amdgpu"} 1`.

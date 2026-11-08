@@ -187,6 +187,15 @@ func TestNodeSonOfAnton(t *testing.T) {
 	if byPCI["0000:d0:00.0"].Cap.OK {
 		t.Fatal("the iGPU has no power cap")
 	}
+	for _, pci := range []string{"0000:c7:00.0", "0000:cc:00.0"} {
+		c := byPCI[pci].Crit
+		if c["edge"] != 110 || c["junction"] != 110 || c["mem"] != 108 {
+			t.Fatalf("%s critical limits: %+v", pci, c)
+		}
+	}
+	if c := byPCI["0000:d0:00.0"].Crit; len(c) != 0 {
+		t.Fatalf("the iGPU exports no critical limits: %+v", c)
+	}
 	var card1 model.DRMCard
 	for _, c := range n.Cards {
 		if c.Name == "card1" {
