@@ -87,8 +87,10 @@ Tests never reach the network: they use `httptest` servers and `testdata/`.
 
 ## Deployment (the owner's machines)
 
-e-workstation runs llmtop from `/etc/nixos`'s `llmtop` flake input, on the
-`c-sysmon` workspace under btop (`home-manager/desktopEnvironment/niri/settings/profile.nix`).
+e-workstation runs llmtop from `/etc/nixos`'s `llmtop` flake input:
+`home-manager/packages/llmtop` installs it with the maitred address and GPU labels
+built in, and niri's sysmon layout opens it on the `c-sysmon` workspace under btop
+(`home-manager/desktopEnvironment/niri/settings/profile.nix`).
 Pushing does nothing until that input is updated (`nix flake update llmtop`), the
 lock committed, and e-workstation rebuilt with `nrs` (see /etc/nixos/AGENTS.md).
 The `drm` collector and the `drm_card_device_info` textfile metric it reads come
