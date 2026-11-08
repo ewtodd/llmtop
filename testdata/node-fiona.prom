@@ -1,0 +1,79 @@
+node_hwmon_chip_names{chip="0000:02:01_0_0000:03:00_0",chip_name="xe"} 1
+node_hwmon_chip_names{chip="platform_coretemp_0",chip_name="coretemp"} 1
+node_hwmon_energy_joule_total{chip="0000:02:01_0_0000:03:00_0",sensor="energy2"} 3.9717440174316e+07
+node_hwmon_fan_rpm{chip="0000:02:01_0_0000:03:00_0",sensor="fan1"} 0
+node_hwmon_fan_rpm{chip="0000:02:01_0_0000:03:00_0",sensor="fan2"} 0
+node_hwmon_sensor_label{chip="0000:02:01_0_0000:03:00_0",label="pkg",sensor="energy2"} 1
+node_hwmon_sensor_label{chip="0000:02:01_0_0000:03:00_0",label="pkg",sensor="in1"} 1
+node_hwmon_sensor_label{chip="0000:02:01_0_0000:03:00_0",label="pkg",sensor="power2"} 1
+node_hwmon_sensor_label{chip="0000:02:01_0_0000:03:00_0",label="pkg",sensor="temp2"} 1
+node_hwmon_sensor_label{chip="0000:02:01_0_0000:03:00_0",label="vram",sensor="temp3"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 0",sensor="temp2"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 12",sensor="temp14"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 16",sensor="temp18"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 20",sensor="temp22"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 24",sensor="temp26"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 25",sensor="temp27"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 26",sensor="temp28"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 27",sensor="temp29"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 28",sensor="temp30"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 29",sensor="temp31"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 30",sensor="temp32"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 31",sensor="temp33"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 4",sensor="temp6"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Core 8",sensor="temp10"} 1
+node_hwmon_sensor_label{chip="platform_coretemp_0",label="Package id 0",sensor="temp1"} 1
+node_hwmon_temp_celsius{chip="0000:02:01_0_0000:03:00_0",sensor="temp2"} 72
+node_hwmon_temp_celsius{chip="0000:02:01_0_0000:03:00_0",sensor="temp3"} 76
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp1"} 88
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp10"} 69
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp14"} 76
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp18"} 88
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp2"} 77
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp22"} 69
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp26"} 80
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp27"} 80
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp28"} 80
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp29"} 80
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp30"} 72
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp31"} 72
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp32"} 72
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp33"} 72
+node_hwmon_temp_celsius{chip="platform_coretemp_0",sensor="temp6"} 75
+node_cpu_seconds_total{cpu="0",mode="idle"} 92857.7
+node_cpu_seconds_total{cpu="0",mode="iowait"} 157.29
+node_cpu_seconds_total{cpu="0",mode="irq"} 98.87
+node_cpu_seconds_total{cpu="0",mode="nice"} 179.06
+node_cpu_seconds_total{cpu="0",mode="softirq"} 172.56
+node_cpu_seconds_total{cpu="0",mode="steal"} 0
+node_cpu_seconds_total{cpu="0",mode="system"} 138.79
+node_cpu_seconds_total{cpu="0",mode="user"} 3554.36
+node_cpu_seconds_total{cpu="1",mode="idle"} 86602.67
+node_cpu_seconds_total{cpu="1",mode="iowait"} 98.69
+node_cpu_seconds_total{cpu="1",mode="irq"} 65.89
+node_cpu_seconds_total{cpu="1",mode="nice"} 151.71
+node_cpu_seconds_total{cpu="1",mode="softirq"} 30.99
+node_cpu_seconds_total{cpu="1",mode="steal"} 0
+node_cpu_seconds_total{cpu="1",mode="system"} 144.09
+node_cpu_seconds_total{cpu="1",mode="user"} 10500.45
+node_cpu_seconds_total{cpu="2",mode="idle"} 92929.41
+node_cpu_seconds_total{cpu="2",mode="iowait"} 183.93
+node_cpu_seconds_total{cpu="2",mode="irq"} 94.29
+node_cpu_seconds_total{cpu="2",mode="nice"} 231.97
+node_cpu_seconds_total{cpu="2",mode="softirq"} 47.19
+node_cpu_seconds_total{cpu="2",mode="steal"} 0
+node_cpu_seconds_total{cpu="2",mode="system"} 164.37
+node_cpu_seconds_total{cpu="2",mode="user"} 3824.69
+node_cpu_seconds_total{cpu="3",mode="idle"} 87070.61
+node_cpu_seconds_total{cpu="3",mode="iowait"} 81.92
+node_cpu_seconds_total{cpu="3",mode="irq"} 60
+node_cpu_seconds_total{cpu="3",mode="nice"} 110.37
+node_cpu_seconds_total{cpu="3",mode="softirq"} 12.46
+node_cpu_seconds_total{cpu="3",mode="steal"} 0
+node_cpu_seconds_total{cpu="3",mode="system"} 136.6
+node_cpu_seconds_total{cpu="3",mode="user"} 10149.74
+node_memory_MemAvailable_bytes 1.2302700544e+10
+node_memory_MemTotal_bytes 3.3198075904e+10
+node_load1 5.74
+drm_card_device_info{card="card0",device="0000:00:02.0",driver="i915"} 1
+drm_card_device_info{card="card1",device="0000:03:00.0",driver="xe"} 1
