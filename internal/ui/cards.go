@@ -185,6 +185,9 @@ func (v *view) bigValue(s state.StreamView, st lipgloss.Style, dim bool) [bigRow
 
 // card renders a full engine card exactly cw columns wide and cardRows high.
 func (v *view) card(e state.EngineView, cw int) []string {
+	if e.Placeholder {
+		return v.placeholderCard(e, cw)
+	}
 	s := v.engineStyles(e)
 	inner := cw - 2
 	b := v.th.Border
@@ -260,8 +263,54 @@ func (v *view) card(e state.EngineView, cw int) []string {
 	return lines
 }
 
+// placeholderCard is a pinned host's card while nothing serves there: the size of a full card, so
+// the screen does not move when the next engine comes up.
+func (v *view) placeholderCard(e state.EngineView, cw int) []string {
+	inner := cw - 2
+	b := v.th.Border
+	title := fit(" "+v.th.Bold.Render(e.Name)+" ", inner-2)
+	top := fit(b.Render("╭─")+title+b.Render(strings.Repeat("─", max(inner-lipgloss.Width(title)-1, 0))+"╮"), cw)
+	row := func(content string) string {
+		return b.Render("│") + padRight(fit(content, inner), inner) + b.Render("│")
+	}
+	lines := []string{top}
+	for i := 0; i < cardRows-2; i++ {
+		switch i {
+		case 2:
+			lines = append(lines, row(" "+v.th.Warn.Render(e.Note)))
+		case 3:
+			lines = append(lines, row(" "+v.th.Mut.Render(v.hostStandby(e.Name))))
+		default:
+			lines = append(lines, row(""))
+		}
+	}
+	return append(lines, b.Render("╰"+strings.Repeat("─", inner)+"╯"))
+}
+
+// hostStandby lists the engines on host that are not serving, with their modes.
+func (v *view) hostStandby(host string) string {
+	var parts []string
+	for _, s := range v.snap.Standby {
+		if s.Host != host {
+			continue
+		}
+		p := s.Name
+		if s.Mode != "" {
+			p += " (" + s.Mode + ")"
+		}
+		parts = append(parts, p)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "standby: " + strings.Join(parts, ", ")
+}
+
 // compact renders the two-line form of an engine, w columns at most.
 func (v *view) compact(e state.EngineView, w int) []string {
+	if e.Placeholder {
+		return []string{fit(v.th.Bold.Render(e.Name)+"  "+v.th.Warn.Render(e.Note), w), fit("  "+v.th.Mut.Render(v.hostStandby(e.Name)), w)}
+	}
 	s := v.engineStyles(e)
 	head := v.th.Bold.Render(e.Name)
 	if e.Display != "" {

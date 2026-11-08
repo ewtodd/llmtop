@@ -23,6 +23,50 @@ type Config struct {
 	NoHosts  bool
 	Extra    []source.ExtraEngine
 	GPUNames map[string]string // "host/pci" -> label
+	// Pins name hosts or engines whose cards stay while idle, in this order, ahead of the rest. With
+	// none, every engine keeps its card.
+	Pins []string
+}
+
+// cardLinger is how long an engine that is not pinned keeps its card after its tokens stop moving.
+const cardLinger = 2 * time.Minute
+
+// keepsCard says whether an engine that may have a card (not a utility) shows one: always without
+// pins, else when pinned or active within cardLinger.
+func keepsCard(pins, pinned bool, r rates.Rates, now time.Time) bool {
+	if !pins || pinned || r.Active {
+		return true
+	}
+	return !r.IdleSince.IsZero() && now.Sub(r.IdleSince) < cardLinger
+}
+
+func (s *State) pinned(names ...string) bool {
+	for _, p := range s.cfg.Pins {
+		for _, n := range names {
+			if n != "" && n == p {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// switching reports whether host has modes and none of them is serving.
+func (s *State) switching(host string) bool {
+	if s.status == nil {
+		return false
+	}
+	var has bool
+	for _, m := range s.status.Modes {
+		if m.Host != host {
+			continue
+		}
+		if m.Serving {
+			return false
+		}
+		has = true
+	}
+	return has
 }
 
 type engineState struct {
@@ -228,12 +272,12 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 	var standby []StandbyView
 	for _, e := range s.engines {
 		if !e.Serving {
-			standby = append(standby, StandbyView{Name: e.Name, Mode: e.Mode, Reason: e.Reason})
+			standby = append(standby, StandbyView{Name: e.Name, Host: e.Host, Mode: e.Mode, Reason: e.Reason})
 			continue
 		}
 		v := EngineView{
 			Name: e.Name, Display: e.Display, Host: e.Host, Addr: hostPort(e.Root), Mode: e.Mode,
-			Live: e.InFlight,
+			Live: e.InFlight, Pinned: !e.Utility && s.pinned(e.Name, e.Host),
 		}
 		if e.Slots > 0 {
 			v.Slots = model.Some(float64(e.Slots))
@@ -241,7 +285,7 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 		es := s.eng[e.Name]
 		if es == nil {
 			v.Err = "connecting"
-			v.Tiny = true
+			v.Tiny = !v.Pinned
 			views = append(views, v)
 			continue
 		}
@@ -250,7 +294,7 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 			v.Err, v.Stale, v.AgeSec = es.err, have, age(now, es.lastOK)
 		}
 		if !have {
-			v.Tiny = true
+			v.Tiny = !v.Pinned
 			views = append(views, v)
 			continue
 		}
@@ -266,8 +310,8 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 		v.DeviceLost = last.DeviceLost
 		// What the engine is decides the line, never whether it is busy: an idle or just
 		// restarted engine keeps its card.
-		v.Tiny = e.Utility || last.Kind == model.KindHealth
 		r := es.tracker.Rates()
+		v.Tiny = e.Utility || last.Kind == model.KindHealth || !keepsCard(len(s.cfg.Pins) > 0, v.Pinned, r, now)
 		v.Ready, v.Active = r.Ready, r.Active
 		v.Prefill = StreamView{Value: model.Opt{V: r.Prefill.Value, OK: r.Prefill.OK}, Approx: r.Prefill.Approx, Held: r.Prefill.Held}
 		v.Decode = StreamView{Value: model.Opt{V: r.Decode.Value, OK: r.Decode.OK}, Approx: r.Decode.Approx, Held: r.Decode.Held}
@@ -279,7 +323,57 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 		v.Busy, v.TTFT, v.Cache, v.Spec = r.Busy, r.TTFT, r.Cache, r.Spec
 		views = append(views, v)
 	}
+	if len(s.cfg.Pins) > 0 {
+		views = s.pinOrder(views)
+	}
 	return views, standby
+}
+
+// pinOrder puts the pinned cards first, in the order of the pins. A pinned host with no engine
+// serving gets a placeholder card, so the layout keeps its place through an llm-mode switch.
+func (s *State) pinOrder(views []EngineView) []EngineView {
+	out := make([]EngineView, 0, len(views)+len(s.cfg.Pins))
+	used := make([]bool, len(views))
+	for _, p := range s.cfg.Pins {
+		found := false
+		for i, v := range views {
+			if !used[i] && !v.Tiny && (v.Name == p || v.Host == p) {
+				out, used[i], found = append(out, v), true, true
+			}
+		}
+		if !found && s.isHost(p) && !s.hostServing(p) {
+			note := "no engine serving"
+			if s.switching(p) {
+				note = "switching: no mode serving"
+			}
+			out = append(out, EngineView{Name: p, Host: p, Pinned: true, Placeholder: true, Note: note})
+		}
+	}
+	for i, v := range views {
+		if !used[i] {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func (s *State) isHost(name string) bool {
+	for _, h := range s.hosts {
+		if h.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hostServing reports whether host has an engine (not a utility) that maitred says is serving.
+func (s *State) hostServing(host string) bool {
+	for _, e := range s.engines {
+		if e.Host == host && e.Serving && !e.Utility {
+			return true
+		}
+	}
+	return false
 }
 
 func shortModel(id string) string {
@@ -309,17 +403,12 @@ func (s *State) hostViews(now time.Time) []HostView {
 	for _, h := range s.hosts {
 		v := HostView{Name: h.Name, NodeURL: h.NodeURL, NoNode: s.cfg.NoHosts}
 		if s.status != nil {
-			var hasMode bool
 			for _, m := range s.status.Modes {
-				if m.Host != h.Name {
-					continue
-				}
-				hasMode = true
-				if m.Serving {
+				if m.Host == h.Name && m.Serving {
 					v.Modes = append(v.Modes, strings.TrimSpace(m.Name+" "+m.Label))
 				}
 			}
-			v.Switching = hasMode && len(v.Modes) == 0
+			v.Switching = s.switching(h.Name)
 		}
 		if ns := s.node[h.Name]; ns != nil && !s.cfg.NoHosts {
 			if ns.err != "" {

@@ -52,7 +52,12 @@ type EngineView struct {
 	Err    string  `json:"error"`
 	AgeSec float64 `json:"age_seconds"` // of the last good reading when Err is set
 	Stale  bool    `json:"stale"`
-	Tiny   bool    `json:"tiny"` // no tokens ever, or health only: one line
+	Tiny   bool    `json:"tiny"` // one line instead of a card
+	// Pinned: its card stays while idle (--pin names it or its host). A placeholder is the card of a
+	// pinned host that has no engine serving; Note says why.
+	Pinned      bool   `json:"pinned"`
+	Placeholder bool   `json:"placeholder,omitempty"`
+	Note        string `json:"note,omitempty"`
 
 	Live    int       `json:"live"` // maitred's in-flight count
 	Slots   model.Opt `json:"slots"`
@@ -81,6 +86,7 @@ type EngineView struct {
 // StandbyView is an upstream that is not serving.
 type StandbyView struct {
 	Name   string `json:"name"`
+	Host   string `json:"host,omitempty"`
 	Mode   string `json:"mode"`
 	Reason string `json:"reason,omitempty"`
 }

@@ -17,7 +17,7 @@
      "models": [{"id": "fiona/llama", "display_name": "Llama", "hidden": true, "tier": 1}]},
     {"name": "embed", "base_url": "http://10.0.0.6:8262/v1/", "host": null, "hosted": false,
      "serving": true, "reason": "", "in_flight": 0, "slots": null,
-     "models": [{"id": "fiona/embed", "display_name": "EmbeddingGemma 2", "hidden": false, "tier": 1}]},
+     "models": [{"id": "fiona/embed", "display_name": "EmbeddingGemma 2", "hidden": true, "tier": 1}]},
     {"name": "deepseek-api", "base_url": "https://api.deepseek.com/v1", "host": null, "hosted": true,
      "serving": true, "reason": "", "in_flight": 0, "slots": null,
      "models": [{"id": "deepseek/deepseek-flash", "display_name": "DeepSeek API (Flash)", "hidden": false, "tier": 1}]}

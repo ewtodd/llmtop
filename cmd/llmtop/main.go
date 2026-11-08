@@ -38,7 +38,7 @@ func parseFlags(args []string, errOut io.Writer) (config, error) {
 	if def == "" {
 		def = defaultMaitred
 	}
-	var engines, gpuNames listFlag
+	var engines, gpuNames, pins listFlag
 	c := config{}
 	fs.StringVar(&c.Maitred, "maitred", def, "maitred `URL` (default $LLMTOP_MAITRED, else "+defaultMaitred+")")
 	fs.DurationVar(&c.Interval, "interval", time.Second, "poll interval")
@@ -46,6 +46,7 @@ func parseFlags(args []string, errOut io.Writer) (config, error) {
 	fs.BoolVar(&c.NoHosts, "no-hosts", false, "do not read node_exporter (no host or GPU section)")
 	fs.Var(&engines, "engine", "add an engine not behind maitred, `NAME=URL` (server root, no /v1); repeatable")
 	fs.Var(&gpuNames, "gpu-name", "display label for a GPU, `HOST/PCI=LABEL`; repeatable")
+	fs.Var(&pins, "pin", "keep the card of a host or engine `NAME` while idle, in this order; repeatable or comma-separated (none: every engine keeps its card)")
 	fs.BoolVar(&c.dump, "dump", false, "poll every source twice, print the snapshot as JSON and exit")
 	fs.BoolVar(&c.demo, "demo", false, "synthetic animated data, no network")
 	if err := fs.Parse(args); err != nil {
@@ -68,6 +69,13 @@ func parseFlags(args []string, errOut io.Writer) (config, error) {
 			return c, fmt.Errorf("--engine %q: want NAME=http://host:port", e)
 		}
 		c.Extra = append(c.Extra, source.ExtraEngine{Name: name, Root: url})
+	}
+	for _, p := range pins {
+		for _, name := range strings.Split(p, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				c.Pins = append(c.Pins, name)
+			}
+		}
 	}
 	c.GPUNames = map[string]string{}
 	for _, g := range gpuNames {

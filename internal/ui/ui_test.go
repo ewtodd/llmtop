@@ -251,3 +251,29 @@ func TestModelKeysAndPolling(t *testing.T) {
 	}
 	m.Update(doneMsg{key: "status", msg: source.StatusMsg{At: time.Now(), Err: os.ErrDeadlineExceeded}})
 }
+
+func TestPlaceholderCard(t *testing.T) {
+	snap := state.Snapshot{
+		Time: time.Now(),
+		Engines: []state.EngineView{
+			{Name: "son-of-anton", Host: "son-of-anton", Pinned: true, Placeholder: true, Note: "switching: no mode serving"},
+			{Name: "eklow", Host: "fiona", Display: "Sage A1.5", Pinned: true, Up: true, Kind: "eklow"},
+		},
+		Standby: []state.StandbyView{{Name: "unholy", Host: "son-of-anton", Mode: "ds4"}, {Name: "radiance", Host: "son-of-anton", Mode: "qwen"}},
+	}
+	for _, sz := range sizes {
+		var want []string
+		if sz[0] >= 60 && sz[1] >= 20 {
+			want = []string{"son-of-anton", "switching: no mode serving", "standby: unholy (ds4), radiance (qwen)", "eklow"}
+		}
+		checkView(t, "placeholder", PlainTheme(), snap, sz[0], sz[1], want...)
+	}
+	full := Render(PlainTheme(), snap, 115, 55, false)
+	if n := strings.Count(stripANSI(full), "╭─"); n != 2 {
+		t.Fatalf("both pinned views are full cards at 115x55, got %d:\n%s", n, stripANSI(full))
+	}
+	lines := strings.Split(stripANSI(full), "\n")
+	if !strings.Contains(lines[1], "son-of-anton") || !strings.Contains(lines[1+cardRows], "eklow") {
+		t.Fatalf("the placeholder is as tall as a card:\n%s", stripANSI(full))
+	}
+}

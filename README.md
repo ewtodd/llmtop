@@ -13,8 +13,9 @@ and 200x50.
   meters scaled to the engine's recent peak and a K/V meter. Below: running,
   waiting, maitred's live count, busy, TTFT, speculative acceptance, prefix-cache
   hit rate, and the aggregate across streams. An engine that goes quiet keeps its
-  last speeds, dimmed, with `idle 4m`. Engines that are up but tiny collapse to
-  one line; the rest are listed as `standby`. When rows are short, cards become
+  last speeds, dimmed, with `idle 4m` (before any traffic, its average since it
+  started). Utility upstreams (every model hidden) and engines without metrics are
+  one line; the ones not serving are listed as `standby`. When rows are short, cards become
   two lines; from 200 columns two sit side by side.
 - **Hosts and GPUs** (node_exporter): CPU, memory, load, and per GPU the busy
   share, VRAM (GTT for an iGPU), temperatures, power, fan and clock.
@@ -33,10 +34,14 @@ nix run github:ewtodd/llmtop -- [flags]
 
 ```
 llmtop [--maitred URL] [--interval 1s] [--node-port 9100] [--no-hosts]
-       [--engine NAME=URL]... [--gpu-name HOST/PCI=LABEL]... [--dump] [--demo]
+       [--pin NAME]... [--engine NAME=URL]... [--gpu-name HOST/PCI=LABEL]... [--dump] [--demo]
 ```
 
 - `--maitred`: default `$LLMTOP_MAITRED`, else `http://10.0.0.2:4002`.
+- `--pin NAME`: keep the card of a host or engine while it is idle, in this order,
+  ahead of the rest; repeatable or comma-separated. A pinned host with nothing
+  serving (an llm-mode switch) keeps a placeholder card. With pins, other engines
+  have a card while active and for two minutes after; without, every engine does.
 - `--engine NAME=URL`: add an engine that is not behind maitred (server root, no
   `/v1`); repeatable.
 - `--gpu-name son-of-anton/0000:c7:00.0="R9700 #0"`: label a GPU. The default is

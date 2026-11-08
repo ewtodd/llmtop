@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ewtodd/llmtop/internal/model"
+	"github.com/ewtodd/llmtop/internal/rates"
 	"github.com/ewtodd/llmtop/internal/source"
 )
 
@@ -269,6 +270,109 @@ node_drm_memory_vram_used_bytes{card="card0"} 1.7e10
 	// JSON round trip (--dump).
 	if _, err := json.MarshalIndent(s.Snapshot(time.Now()), "", "  "); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestKeepsCard(t *testing.T) {
+	now := time.Unix(1_762_590_000, 0)
+	idleFor := func(d time.Duration) rates.Rates { return rates.Rates{IdleSince: now.Add(-d)} }
+	for _, c := range []struct {
+		name         string
+		pins, pinned bool
+		r            rates.Rates
+		want         bool
+	}{
+		{"no pins: every engine", false, false, rates.Rates{}, true},
+		{"pinned and never active", true, true, rates.Rates{}, true},
+		{"unpinned, active", true, false, rates.Rates{Active: true}, true},
+		{"unpinned, idle a minute", true, false, idleFor(time.Minute), true},
+		{"unpinned, idle past the linger", true, false, idleFor(cardLinger), false},
+		{"unpinned, never active", true, false, rates.Rates{}, false},
+	} {
+		if got := keepsCard(c.pins, c.pinned, c.r, now); got != c.want {
+			t.Errorf("%s: %v", c.name, got)
+		}
+	}
+}
+
+func pinned(t *testing.T, pins []string, edit func(*model.Status)) Snapshot {
+	t.Helper()
+	var st model.Status
+	if err := json.Unmarshal(fixture(t, "maitred-status.json"), &st); err != nil {
+		t.Fatal(err)
+	}
+	if edit != nil {
+		edit(&st)
+	}
+	s := New(Config{Interval: time.Second, NodePort: "9100", Pins: pins})
+	s.Apply(source.StatusMsg{At: time.Now(), Status: &st})
+	return s.Snapshot(time.Now())
+}
+
+func cards(snap Snapshot) string {
+	var out []string
+	for _, e := range snap.Engines {
+		if !e.Tiny {
+			out = append(out, e.Name)
+		}
+	}
+	return strings.Join(out, ",")
+}
+
+func TestPinsOrderAndIdleCards(t *testing.T) {
+	// Nothing has been scraped yet: every engine is connecting, none active.
+	if got := cards(pinned(t, nil, nil)); got != "" {
+		t.Fatalf("no pins, connecting engines are lines until read: %s", got)
+	}
+	snap := pinned(t, []string{"fiona", "son-of-anton"}, nil)
+	if got := cards(snap); got != "eklow,unholy-glm" {
+		t.Fatalf("pinned hosts keep their cards, in pin order: %s", got)
+	}
+	if !snap.Engines[0].Pinned || snap.Engines[0].Name != "eklow" {
+		t.Fatalf("%+v", snap.Engines[0])
+	}
+	for _, e := range snap.Engines {
+		if (e.Name == "llama" || e.Name == "embed") && (!e.Tiny || e.Pinned) {
+			t.Fatalf("utilities stay lines on a pinned host: %+v", e)
+		}
+	}
+	if got := cards(pinned(t, []string{"son-of-anton"}, nil)); got != "unholy-glm" {
+		t.Fatalf("an unpinned idle engine is a line: %s", got)
+	}
+	if got := cards(pinned(t, []string{"eklow"}, nil)); got != "eklow" {
+		t.Fatalf("an engine can be pinned by name: %s", got)
+	}
+}
+
+func TestPinnedHostWithNothingServing(t *testing.T) {
+	snap := pinned(t, []string{"son-of-anton", "fiona"}, func(st *model.Status) {
+		for i := range st.Upstreams {
+			if st.Upstreams[i].Name == "unholy-glm" {
+				st.Upstreams[i].Serving = false
+			}
+		}
+		for i := range st.Modes {
+			if st.Modes[i].Host == "son-of-anton" {
+				st.Modes[i].Serving = false
+			}
+		}
+	})
+	e := snap.Engines[0]
+	if !e.Placeholder || e.Name != "son-of-anton" || !strings.Contains(e.Note, "switching") || e.Tiny {
+		t.Fatalf("placeholder first, in pin order: %+v", e)
+	}
+	if snap.Engines[1].Name != "eklow" {
+		t.Fatalf("then fiona's engine: %+v", snap.Engines[1])
+	}
+	var hosts []string
+	for _, sb := range snap.Standby {
+		hosts = append(hosts, sb.Host)
+	}
+	if !strings.Contains(strings.Join(hosts, ","), "son-of-anton") {
+		t.Fatalf("standby entries carry their host: %+v", snap.Standby)
+	}
+	if got := pinned(t, []string{"nowhere"}, nil); len(got.Engines) == 0 || got.Engines[0].Placeholder {
+		t.Fatalf("a pin that names nothing adds nothing: %+v", got.Engines)
 	}
 }
 

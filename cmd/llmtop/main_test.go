@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,12 +27,16 @@ func TestParseFlags(t *testing.T) {
 		"--maitred", "http://m:2", "--interval", "500ms", "--node-port", "9200", "--no-hosts",
 		"--engine", "a=http://h:1", "--engine", "b=http://h:2/v1",
 		"--gpu-name", `son-of-anton/0000:c7:00.0=R9700 #0`, "--dump", "--demo",
+		"--pin", "son-of-anton", "--pin", "fiona, unholy-ds4,",
 	}, io.Discard)
 	if err != nil || c.Maitred != "http://m:2" || c.Interval != 500*time.Millisecond || c.NodePort != "9200" || !c.NoHosts || !c.dump || !c.demo {
 		t.Fatalf("%+v %v", c, err)
 	}
 	if len(c.Extra) != 2 || c.Extra[1].Name != "b" || c.GPUNames["son-of-anton/0000:c7:00.0"] != "R9700 #0" {
 		t.Fatalf("%+v", c)
+	}
+	if strings.Join(c.Pins, "|") != "son-of-anton|fiona|unholy-ds4" {
+		t.Fatalf("pins, in order: %q", c.Pins)
 	}
 	for _, bad := range [][]string{
 		{"--nope"}, {"extra"}, {"--engine", "noequals"}, {"--engine", "a=notaurl"}, {"--gpu-name", "x=y"},
