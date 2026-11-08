@@ -83,7 +83,8 @@ func TestSnapshotFromStatusFixture(t *testing.T) {
 func TestSwitchingHost(t *testing.T) {
 	var st model.Status
 	_ = json.Unmarshal(fixture(t, "maitred-status.json"), &st)
-	st.Modes[0].Serving = false
+	st.Modes[0].Serving = false // glm, whose only upstream is unholy-glm
+	st.Upstreams[0].Serving = false
 	s := New(Config{Interval: time.Second, NodePort: "9100"})
 	s.Apply(source.StatusMsg{At: time.Now(), Status: &st})
 	for _, h := range s.Snapshot(time.Now()).Hosts {
@@ -373,6 +374,77 @@ func TestPinnedHostWithNothingServing(t *testing.T) {
 	}
 	if got := pinned(t, []string{"nowhere"}, nil); len(got.Engines) == 0 || got.Engines[0].Placeholder {
 		t.Fatalf("a pin that names nothing adds nothing: %+v", got.Engines)
+	}
+}
+
+// status is the fixture with son-of-anton's glm mode and its upstream serving or not.
+func status(t *testing.T, glm bool) *model.Status {
+	t.Helper()
+	var st model.Status
+	if err := json.Unmarshal(fixture(t, "maitred-status.json"), &st); err != nil {
+		t.Fatal(err)
+	}
+	for i := range st.Upstreams {
+		if st.Upstreams[i].Name == "unholy-glm" {
+			st.Upstreams[i].Serving = glm
+		}
+	}
+	for i := range st.Modes {
+		if st.Modes[i].Name == "glm" {
+			st.Modes[i].Serving = glm
+		}
+	}
+	return &st
+}
+
+func targets(s *State) string {
+	engines, _ := s.Targets()
+	var out []string
+	for _, e := range engines {
+		out = append(out, e.Name)
+	}
+	return strings.Join(out, ",")
+}
+
+func TestProbeBlipKeepsTheCard(t *testing.T) {
+	t0 := time.Unix(1_762_590_000, 0)
+	s := New(Config{Interval: time.Second, NodePort: "9100", Pins: []string{"son-of-anton", "fiona"}})
+	s.Apply(source.StatusMsg{At: t0, Status: status(t, true)})
+
+	// One probe of unholy-glm fails: maitred says glm is not serving.
+	at := t0.Add(5 * time.Second)
+	s.Apply(source.StatusMsg{At: at, Status: status(t, false)})
+	snap := s.Snapshot(at)
+	if e := snap.Engines[0]; e.Name != "unholy-glm" || e.Placeholder {
+		t.Fatalf("a blip keeps the card: %+v", e)
+	}
+	for _, h := range snap.Hosts {
+		if h.Name == "son-of-anton" && (h.Switching || strings.Join(h.Modes, "|") != "glm GLM-5.3-Flash") {
+			t.Fatalf("a blip is not a switch: %+v", h)
+		}
+	}
+	if !strings.Contains(targets(s), "unholy-glm") {
+		t.Fatalf("still scraped during the grace: %s", targets(s))
+	}
+
+	// Its own scrape answers: that is evidence too, whatever the probe says.
+	at = t0.Add(18 * time.Second)
+	s.Apply(source.EngineMsg{Name: "unholy-glm", At: at, Reading: model.Reading{At: at, Kind: model.KindUnholy, Up: true}})
+	at = t0.Add(30 * time.Second)
+	s.Apply(source.StatusMsg{At: at, Status: status(t, false)})
+	if e := s.Snapshot(at).Engines[0]; e.Name != "unholy-glm" || e.Placeholder {
+		t.Fatalf("a scrape 12 s ago keeps it serving: %+v", e)
+	}
+
+	// Nothing for longer than the grace: a real switch.
+	at = t0.Add(18*time.Second + serveGrace)
+	s.Apply(source.StatusMsg{At: at, Status: status(t, false)})
+	snap = s.Snapshot(at)
+	if e := snap.Engines[0]; !e.Placeholder || !strings.Contains(e.Note, "switching") {
+		t.Fatalf("past the grace it is a switch: %+v", e)
+	}
+	if strings.Contains(targets(s), "unholy-glm") {
+		t.Fatalf("no longer scraped: %s", targets(s))
 	}
 }
 

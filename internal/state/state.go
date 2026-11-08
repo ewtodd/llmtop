@@ -31,6 +31,11 @@ type Config struct {
 // cardLinger is how long an engine that is not pinned keeps its card after its tokens stop moving.
 const cardLinger = 2 * time.Minute
 
+// serveGrace is how long an engine counts as serving after the last evidence of it: maitred saying
+// so, or a scrape of its own that answered. maitred's verdict is one probe with a short timeout, so a
+// slow answer or a network blip flips it for a few seconds; an llm-mode switch takes minutes.
+const serveGrace = 20 * time.Second
+
 // keepsCard says whether an engine that may have a card (not a utility) shows one: always without
 // pins, else when pinned or active within cardLinger.
 func keepsCard(pins, pinned bool, r rates.Rates, now time.Time) bool {
@@ -51,8 +56,19 @@ func (s *State) pinned(names ...string) bool {
 	return false
 }
 
-// switching reports whether host has modes and none of them is serving.
-func (s *State) switching(host string) bool {
+// serving says whether e counts as serving at now: maitred says so, or it did, or e answered a
+// scrape, within serveGrace.
+func (s *State) serving(e source.Engine, now time.Time) bool {
+	if e.Serving {
+		return true
+	}
+	t, ok := s.servingAt[e.Name]
+	return ok && now.Sub(t) < serveGrace
+}
+
+// switching reports whether host has modes, none of them serving, and nothing on it has served
+// within serveGrace.
+func (s *State) switching(host string, now time.Time) bool {
 	if s.status == nil {
 		return false
 	}
@@ -66,7 +82,13 @@ func (s *State) switching(host string) bool {
 		}
 		has = true
 	}
-	return has
+	if !has {
+		return false
+	}
+	if t, ok := s.modeAt[host]; ok && now.Sub(t) < serveGrace {
+		return false
+	}
+	return !s.hostServing(host, now)
 }
 
 type engineState struct {
@@ -100,11 +122,21 @@ type State struct {
 	hosts   []source.Host
 	eng     map[string]*engineState
 	node    map[string]*nodeState
+
+	// Evidence of serving, for serveGrace: per engine the last time maitred said it was serving or a
+	// scrape of it answered; per host the last time one of its modes was serving, and their labels.
+	latest    time.Time // the newest message time: "now" for decisions made on message arrival
+	servingAt map[string]time.Time
+	modeAt    map[string]time.Time
+	lastModes map[string][]string
 }
 
 // New makes an empty state.
 func New(cfg Config) *State {
-	s := &State{cfg: cfg, eng: map[string]*engineState{}, node: map[string]*nodeState{}}
+	s := &State{
+		cfg: cfg, eng: map[string]*engineState{}, node: map[string]*nodeState{},
+		servingAt: map[string]time.Time{}, modeAt: map[string]time.Time{}, lastModes: map[string][]string{},
+	}
 	s.rediscover()
 	return s
 }
@@ -118,7 +150,7 @@ type Target struct {
 // Targets are the engines to scrape and the nodes to read, from what is known now.
 func (s *State) Targets() (engines, nodes []Target) {
 	for _, e := range s.engines {
-		if e.Serving {
+		if s.serving(e, s.latest) {
 			engines = append(engines, Target{e.Name, e.Root})
 		}
 	}
@@ -136,7 +168,7 @@ func (s *State) rediscover() {
 	s.engines, s.hosts = source.Discover(s.status, s.cfg.Extra, s.cfg.NodePort)
 	serving := map[string]bool{}
 	for _, e := range s.engines {
-		if e.Serving {
+		if s.serving(e, s.latest) {
 			serving[e.Name] = true
 		}
 	}
@@ -160,6 +192,7 @@ func (s *State) rediscover() {
 func (s *State) Apply(msg any) {
 	switch m := msg.(type) {
 	case source.StatusMsg:
+		s.saw(m.At)
 		s.tried = true
 		if m.Err != nil {
 			s.statusErr = source.ShortErr(m.Err)
@@ -170,11 +203,13 @@ func (s *State) Apply(msg any) {
 		s.models = m.Models
 		if m.Status != nil {
 			s.status, s.statusRecv = m.Status, m.At
+			s.noteServing(m.Status, m.At)
 		} else {
 			s.status = nil
 		}
 		s.rediscover()
 	case source.EngineMsg:
+		s.saw(m.At)
 		es := s.eng[m.Name]
 		if es == nil {
 			es = &engineState{tracker: rates.NewTracker(s.cfg.Interval)}
@@ -186,7 +221,11 @@ func (s *State) Apply(msg any) {
 		}
 		es.err, es.lastOK = "", m.At
 		es.tracker.Add(m.Reading)
+		if m.Reading.Up {
+			s.servingAt[m.Name] = m.At
+		}
 	case source.NodeMsg:
+		s.saw(m.At)
 		ns := s.node[m.Host]
 		if ns == nil {
 			ns = &nodeState{tracker: rates.NewNodeTracker(s.cfg.Interval)}
@@ -199,6 +238,31 @@ func (s *State) Apply(msg any) {
 		ns.err, ns.lastOK = "", m.At
 		ns.last, ns.have = m.Node, true
 		ns.rates = ns.tracker.Add(m.Node)
+	}
+}
+
+func (s *State) saw(at time.Time) {
+	if at.After(s.latest) {
+		s.latest = at
+	}
+}
+
+// noteServing records the evidence in a status: the upstreams and modes maitred says are serving.
+func (s *State) noteServing(st *model.Status, at time.Time) {
+	for _, u := range st.Upstreams {
+		if u.Serving {
+			s.servingAt[u.Name] = at
+		}
+	}
+	modes := map[string][]string{}
+	for _, m := range st.Modes {
+		if m.Serving {
+			s.modeAt[m.Host] = at
+			modes[m.Host] = append(modes[m.Host], strings.TrimSpace(m.Name+" "+m.Label))
+		}
+	}
+	for host, labels := range modes {
+		s.lastModes[host] = labels
 	}
 }
 
@@ -271,7 +335,7 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 	var views []EngineView
 	var standby []StandbyView
 	for _, e := range s.engines {
-		if !e.Serving {
+		if !s.serving(e, now) {
 			standby = append(standby, StandbyView{Name: e.Name, Host: e.Host, Mode: e.Mode, Reason: e.Reason})
 			continue
 		}
@@ -324,14 +388,14 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 		views = append(views, v)
 	}
 	if len(s.cfg.Pins) > 0 {
-		views = s.pinOrder(views)
+		views = s.pinOrder(views, now)
 	}
 	return views, standby
 }
 
 // pinOrder puts the pinned cards first, in the order of the pins. A pinned host with no engine
 // serving gets a placeholder card, so the layout keeps its place through an llm-mode switch.
-func (s *State) pinOrder(views []EngineView) []EngineView {
+func (s *State) pinOrder(views []EngineView, now time.Time) []EngineView {
 	out := make([]EngineView, 0, len(views)+len(s.cfg.Pins))
 	used := make([]bool, len(views))
 	for _, p := range s.cfg.Pins {
@@ -341,9 +405,9 @@ func (s *State) pinOrder(views []EngineView) []EngineView {
 				out, used[i], found = append(out, v), true, true
 			}
 		}
-		if !found && s.isHost(p) && !s.hostServing(p) {
+		if !found && s.isHost(p) && !s.hostServing(p, now) {
 			note := "no engine serving"
-			if s.switching(p) {
+			if s.switching(p, now) {
 				note = "switching: no mode serving"
 			}
 			out = append(out, EngineView{Name: p, Host: p, Pinned: true, Placeholder: true, Note: note})
@@ -366,10 +430,10 @@ func (s *State) isHost(name string) bool {
 	return false
 }
 
-// hostServing reports whether host has an engine (not a utility) that maitred says is serving.
-func (s *State) hostServing(host string) bool {
+// hostServing reports whether host has an engine (not a utility) that counts as serving.
+func (s *State) hostServing(host string, now time.Time) bool {
 	for _, e := range s.engines {
-		if e.Host == host && e.Serving && !e.Utility {
+		if e.Host == host && !e.Utility && s.serving(e, now) {
 			return true
 		}
 	}
@@ -408,7 +472,10 @@ func (s *State) hostViews(now time.Time) []HostView {
 					v.Modes = append(v.Modes, strings.TrimSpace(m.Name+" "+m.Label))
 				}
 			}
-			v.Switching = s.switching(h.Name)
+			if t, ok := s.modeAt[h.Name]; ok && len(v.Modes) == 0 && now.Sub(t) < serveGrace {
+				v.Modes = s.lastModes[h.Name] // a probe blip: keep the modes it was serving
+			}
+			v.Switching = s.switching(h.Name, now)
 		}
 		if ns := s.node[h.Name]; ns != nil && !s.cfg.NoHosts {
 			if ns.err != "" {
