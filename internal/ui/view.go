@@ -214,7 +214,7 @@ func (v *view) temps(g state.GPUView) string {
 	var parts []string
 	for _, t := range tempOrder {
 		if c, ok := g.Temps[t.key]; ok {
-			parts = append(parts, v.th.Mut.Render(t.short)+" "+v.tempStyle(t.key, c).Render(fmt.Sprintf("%.0f", c)))
+			parts = append(parts, v.th.Mut.Render(t.short)+" "+v.tempStyle(t.key, c).Render(fmt.Sprintf("%.0f°C", c)))
 		}
 	}
 	if len(parts) == 0 {
