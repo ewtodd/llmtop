@@ -1,7 +1,4 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
 .direnv/
 result
 result-*
-*.svg
+vendor/
