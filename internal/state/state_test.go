@@ -254,6 +254,9 @@ node_drm_memory_vram_used_bytes{card="card0"} 1.7e10
 		if i == 0 && (e.Ready || e.Decode.Value.OK) {
 			t.Fatalf("the window is discarded at the switch: %+v", e)
 		}
+		if e.Tiny {
+			t.Fatalf("a just-switched engine keeps its card: %+v", e)
+		}
 	}
 
 	// A dead engine keeps its last good reading, dimmed with its age.

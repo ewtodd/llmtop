@@ -110,8 +110,12 @@ func TestCounterResetDiscardsWindow(t *testing.T) {
 	// Restart: the counters are small again.
 	tr.Add(seq(4, 10, 20, 0.5, 0.5, 1))
 	r := tr.Rates()
-	if r.Ready || r.Decode.OK || r.Prefill.OK || r.PeakDecode != 0 || !r.IdleSince.IsZero() {
+	if r.Ready || r.PeakDecode != 0 || !r.IdleSince.IsZero() {
 		t.Fatalf("no rate until two readings exist again: %+v", r)
+	}
+	// Held speeds may only come from the new process: its own totals, 20 / 0.5 and 10 / 0.5.
+	if !r.Decode.Held || r.Decode.Value != 40 || !r.Prefill.Held || r.Prefill.Value != 20 {
+		t.Fatalf("held speeds from the old process: %+v", r)
 	}
 	tr.Add(seq(5, 10, 60, 0.5, 1.5, 1))
 	r = tr.Rates()
@@ -160,12 +164,32 @@ func TestIdleHoldsLastActiveValues(t *testing.T) {
 	}
 }
 
-func TestNeverActiveIsIdleWithoutNumbers(t *testing.T) {
+func TestNeverActiveHoldsTheProcessAverage(t *testing.T) {
 	tr := NewTracker(time.Second)
-	tr.Add(seq(0, 5, 5, 1, 1, 0))
-	tr.Add(seq(1, 5, 5, 1, 1, 0))
+	// Idle since llmtop started: 300 prefill tokens over 2 sequence-seconds, 80 decoded over 4.
+	tr.Add(seq(0, 300, 80, 2, 4, 0))
 	r := tr.Rates()
-	if r.Active || r.Decode.OK || !r.IdleSince.IsZero() {
+	if r.Ready || !r.Prefill.Held || r.Prefill.Value != 150 || !r.Decode.Held || r.Decode.Value != 20 {
+		t.Fatalf("first reading: %+v", r)
+	}
+	tr.Add(seq(1, 300, 80, 2, 4, 0))
+	r = tr.Rates()
+	if r.Active || !r.IdleSince.IsZero() || !r.Decode.Held || r.Decode.Value != 20 || r.PeakDecode != 0 {
+		t.Fatalf("idle: %+v", r)
+	}
+	// Live values replace the averages and feed the peaks.
+	tr.Add(seq(2, 300, 120, 2, 5, 1))
+	r = tr.Rates()
+	if !r.Active || r.Decode.Held || r.Decode.Value != 40 || r.PeakDecode != 40 {
+		t.Fatalf("active: %+v", r)
+	}
+}
+
+func TestFreshProcessHasNoNumbers(t *testing.T) {
+	tr := NewTracker(time.Second)
+	tr.Add(seq(0, 0, 0, 0, 0, 0))
+	tr.Add(seq(1, 0, 0, 0, 0, 0))
+	if r := tr.Rates(); r.Decode.OK || r.Prefill.OK {
 		t.Fatalf("%+v", r)
 	}
 }

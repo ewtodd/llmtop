@@ -173,8 +173,25 @@ func (t *Tracker) compute() {
 		out.Spec = model.Some(100 * last.SpecAccepted.V / last.SpecDrafted.V)
 	}
 
+	// Until tokens move in view (llmtop just started, or the engine has been idle since), the held
+	// speeds are the process totals: the engine's per-stream average since it started.
+	seed := func(tok float64, seq model.Opt, held *float64, have *bool) {
+		if !*have && tok > 0 && seq.OK && seq.V > minSeq {
+			*held, *have = tok/seq.V, true
+		}
+	}
+	seed(last.PrefillTokens, last.PrefillSeqSeconds, &t.heldPre, &t.havePre)
+	seed(last.DecodeTokens, last.DecodeSeqSeconds, &t.heldDec, &t.haveDec)
+	heldStream := func(v float64, have bool) Stream {
+		if !have {
+			return Stream{}
+		}
+		return Stream{Value: v, OK: true, Held: true}
+	}
+
 	base, ok := t.base(t.window())
 	if !ok || !last.At.After(base.At) {
+		out.Prefill, out.Decode = heldStream(t.heldPre, t.havePre), heldStream(t.heldDec, t.haveDec)
 		out.IdleSince = t.lastActive
 		t.rates = out
 		return
@@ -200,10 +217,7 @@ func (t *Tracker) compute() {
 				return s, agg
 			}
 		}
-		if *have {
-			s = Stream{Value: *held, OK: true, Held: true}
-		}
-		return s, agg
+		return heldStream(*held, *have), agg
 	}
 	out.Prefill, out.PrefillAgg = phase(dPre, base.PrefillSeqSeconds, last.PrefillSeqSeconds, &t.heldPre, &t.havePre)
 	out.Decode, out.DecodeAgg = phase(dDec, base.DecodeSeqSeconds, last.DecodeSeqSeconds, &t.heldDec, &t.haveDec)

@@ -273,8 +273,11 @@ func TestDiscoverHosts(t *testing.T) {
 	if engines[0].Root != "http://10.0.0.5:8250" || engines[0].Display != "GLM-5.3-Flash" || engines[0].Slots != 8 || engines[0].Mode != "glm" {
 		t.Fatalf("%+v", engines[0])
 	}
-	if engines[3].Display != "Llama" {
-		t.Fatalf("hidden-only models still name the engine: %+v", engines[3])
+	if engines[3].Display != "Llama" || !engines[3].Utility {
+		t.Fatalf("hidden-only models still name the engine, as a utility: %+v", engines[3])
+	}
+	if engines[0].Utility || engines[2].Utility {
+		t.Fatalf("an engine with a listed model is not a utility: %+v %+v", engines[0], engines[2])
 	}
 	if len(hosts) != 3 {
 		t.Fatalf("hosts = %+v", hosts)

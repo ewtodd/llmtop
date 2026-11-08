@@ -22,6 +22,7 @@ type Engine struct {
 	Display  string
 	Mode     string // first mode that lists the upstream
 	Extra    bool   // from --engine, not behind maitred
+	Utility  bool   // every model on it is hidden (titles, embeddings): a line, never a card
 }
 
 // Host is a machine with engines on it; its node_exporter holds the hardware.
@@ -83,6 +84,7 @@ func Discover(st *model.Status, extra []ExtraEngine, nodePort string) ([]Engine,
 			}
 			if e.Display == "" && len(u.Models) > 0 {
 				e.Display = u.Models[0].DisplayName
+				e.Utility = true
 			}
 			engines = append(engines, e)
 			seen[e.Name] = true

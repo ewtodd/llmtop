@@ -264,7 +264,9 @@ func (s *State) engineViews(now time.Time) ([]EngineView, []StandbyView) {
 		}
 		v.Running, v.Waiting, v.KV, v.Context = last.Running, last.Waiting, last.KV, last.Context
 		v.DeviceLost = last.DeviceLost
-		v.Tiny = last.Kind == model.KindHealth || last.DecodeTokens == 0
+		// What the engine is decides the line, never whether it is busy: an idle or just
+		// restarted engine keeps its card.
+		v.Tiny = e.Utility || last.Kind == model.KindHealth
 		r := es.tracker.Rates()
 		v.Ready, v.Active = r.Ready, r.Active
 		v.Prefill = StreamView{Value: model.Opt{V: r.Prefill.Value, OK: r.Prefill.OK}, Approx: r.Prefill.Approx, Held: r.Prefill.Held}
