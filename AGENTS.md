@@ -78,9 +78,10 @@ Tests never reach the network: they use `httptest` servers and `testdata/`.
 - Sole authorship. No `Co-authored-by:` trailers, for anyone - not the repo owner,
   not the model.
 - Name the model. A commit made by an agent ends its body with one line,
-  `Model: <id>`: the exact model that wrote the change (`Model: claude-opus-5-5`,
-  `Model: claude-sonnet-5-5`). Under maitred's `auto`, name the model that actually
-  served it (its `x-maitred-model` header), never `auto`.
+  `Model: <id>`: the exact model that wrote the change. Running under the
+  son-of-anton harness, take it from the `SOA_MODEL` env var, verbatim (e.g.
+  `Model: unholy/glm5.3-flash`); under maitred's `auto`, name the model that
+  actually served it (its `x-maitred-model` header), never `auto`.
 - Message: a short summary line (`area: what changed`), a blank line, then a body that
   explains what changed and why. Never cram several changes into one long subject line.
 - Remote: `git@github.com:ewtodd/llmtop.git`, branch `main`. Never push; the owner does.
