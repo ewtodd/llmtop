@@ -1,0 +1,12 @@
+vllm:num_requests_running{model_name="m",engine="0"} 4
+vllm:num_requests_waiting{model_name="m",engine="0"} 2
+vllm:kv_cache_usage_perc{model_name="m",engine="0"} 0.5
+vllm:prompt_tokens_total{model_name="m",engine="0"} 10000
+vllm:prompt_tokens_cached_total{model_name="m",engine="0"} 6000
+vllm:generation_tokens_total{model_name="m",engine="0"} 2000
+vllm:request_prefill_time_seconds_sum{model_name="m",engine="0"} 8
+vllm:request_decode_time_seconds_sum{model_name="m",engine="0"} 40
+vllm:time_to_first_token_seconds_sum{model_name="m",engine="0"} 5
+vllm:time_to_first_token_seconds_count{model_name="m",engine="0"} 10
+vllm:spec_decode_num_draft_tokens_total{model_name="m",engine="0"} 100
+vllm:spec_decode_num_accepted_tokens_total{model_name="m",engine="0"} 70

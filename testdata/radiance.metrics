@@ -1,0 +1,15 @@
+vllm:num_requests_running{model_name="qwen3.8-27b",engine="0"} 3
+vllm:num_requests_waiting{model_name="qwen3.8-27b",engine="0"} 0
+vllm:gpu_cache_usage_perc{model_name="qwen3.8-27b",engine="0"} 0.31
+vllm:kv_cache_usage_perc{model_name="qwen3.8-27b",engine="0"} 0.31
+vllm:prompt_tokens_total{model_name="qwen3.8-27b",engine="0"} 90000
+vllm:generation_tokens_total{model_name="qwen3.8-27b",engine="0"} 1200
+vllm:time_to_first_token_seconds_sum{model_name="qwen3.8-27b",engine="0"} 33
+vllm:time_to_first_token_seconds_count{model_name="qwen3.8-27b",engine="0"} 30
+radiance:prefill_tokens_total{model_name="qwen3.8-27b",engine="0"} 60000
+radiance:decode_tokens_total{model_name="qwen3.8-27b",engine="0"} 41000
+radiance:draft_tokens_total{model_name="qwen3.8-27b",engine="0"} 5000
+radiance:draft_accepted_total{model_name="qwen3.8-27b",engine="0"} 4000
+radiance:engine_step_seconds_total{model_name="qwen3.8-27b",engine="0"} 800.5
+radiance:attn_cached_tokens_total{model_name="qwen3.8-27b",engine="0"} 30000
+radiance:decode_step_seconds_recent{model_name="qwen3.8-27b",engine="0"} 0.021

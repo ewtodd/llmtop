@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "now": 1762590000.123,
+  "started": 1762500000.0,
+  "upstreams": [
+    {"name": "unholy-glm", "base_url": "http://10.0.0.5:8250/v1", "host": "son-of-anton", "hosted": false,
+     "serving": true, "reason": "", "in_flight": 3, "slots": 8,
+     "models": [{"id": "unholy/glm5.3-flash", "display_name": "GLM-5.3-Flash", "hidden": false, "tier": 3}]},
+    {"name": "unholy-ds4", "base_url": "http://10.0.0.5:8251/v1", "host": "son-of-anton", "hosted": false,
+     "serving": false, "reason": "not loaded", "in_flight": 0, "slots": null,
+     "models": [{"id": "unholy/dsv4-flash", "display_name": "DeepSeek-V4-Flash", "hidden": false, "tier": 3}]},
+    {"name": "eklow", "base_url": "http://10.0.0.6:8260/v1", "host": "fiona", "hosted": false,
+     "serving": true, "reason": "", "in_flight": 0, "slots": 2,
+     "models": [{"id": "eklow/sage-a1.5", "display_name": "Sage A1.5 35B A3B", "hidden": false, "tier": 2}]},
+    {"name": "llama", "base_url": "http://10.0.0.6:8261/v1", "host": null, "hosted": false,
+     "serving": true, "reason": "", "in_flight": 0, "slots": null,
+     "models": [{"id": "fiona/llama", "display_name": "Llama", "hidden": true, "tier": 1}]},
+    {"name": "embed", "base_url": "http://10.0.0.6:8262/v1/", "host": null, "hosted": false,
+     "serving": true, "reason": "", "in_flight": 0, "slots": null,
+     "models": [{"id": "fiona/embed", "display_name": "EmbeddingGemma 2", "hidden": false, "tier": 1}]},
+    {"name": "deepseek-api", "base_url": "https://api.deepseek.com/v1", "host": null, "hosted": true,
+     "serving": true, "reason": "", "in_flight": 0, "slots": null,
+     "models": [{"id": "deepseek/deepseek-flash", "display_name": "DeepSeek API (Flash)", "hidden": false, "tier": 1}]}
+  ],
+  "modes": [
+    {"name": "glm", "label": "GLM-5.3-Flash", "host": "son-of-anton", "upstreams": ["unholy-glm"], "serving": true},
+    {"name": "ds4", "label": "DeepSeek-V4-Flash", "host": "son-of-anton", "upstreams": ["unholy-ds4"], "serving": false},
+    {"name": "sage", "label": "Sage A1.5", "host": "fiona", "upstreams": ["eklow"], "serving": true}
+  ],
+  "keys": [
+    {"name": "son-of-anton", "in_flight": 2, "requests": 120, "failures": 1, "prompt_tokens": 812345,
+     "completion_tokens": 40321, "cached_tokens": 790000, "last": 1762589990.5},
+    {"name": "idle-key", "in_flight": 0, "requests": 0, "failures": 0, "prompt_tokens": 0,
+     "completion_tokens": 0, "cached_tokens": 0, "last": null}
+  ],
+  "recent": [
+    {"id": 4711, "start": 1762589990.5, "key": "son-of-anton", "requested": "auto", "model": "unholy/glm5.3-flash",
+     "upstream": "unholy-glm", "route": "tier", "path": "chat/completions", "status": 200, "headers_ms": 12,
+     "first_chunk_ms": 840, "duration_ms": null, "done": false, "error": "", "usage": null},
+    {"id": 4710, "start": 1762589900.0, "key": "son-of-anton", "requested": "auto", "model": "unholy/glm5.3-flash",
+     "upstream": "unholy-glm", "route": "", "path": "chat/completions", "status": 200, "headers_ms": 10,
+     "first_chunk_ms": 700, "duration_ms": 9000, "done": true, "error": "",
+     "usage": {"prompt_tokens": 12000, "completion_tokens": 300, "cached_tokens": 11000}},
+    {"id": 4709, "start": 1762589800.0, "key": "son-of-anton", "requested": "nope", "model": "nope",
+     "upstream": "", "route": "", "path": "chat/completions", "status": 404, "headers_ms": null,
+     "first_chunk_ms": null, "duration_ms": 1, "done": true, "error": "model_not_found", "usage": null}
+  ]
+}

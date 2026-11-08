@@ -1,0 +1,11 @@
+gufo_device_lost_total 2
+llamacpp:prompt_tokens_total 8000
+llamacpp:prompt_tokens_cached_total 2000
+llamacpp:prompt_seconds_total 16
+llamacpp:tokens_predicted_total 3000
+llamacpp:tokens_predicted_seconds_total 60
+llamacpp:spec_decode_num_draft_tokens_total 400
+llamacpp:spec_decode_num_accepted_tokens_total 300
+llamacpp:requests_processing 2
+llamacpp:requests_deferred 1
+llamacpp:kv_cache_usage_ratio 0.25

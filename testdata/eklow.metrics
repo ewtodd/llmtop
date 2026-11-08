@@ -1,0 +1,15 @@
+eklow_info{model="sage-a1.5"} 1
+eklow_slots 2
+eklow_context_tokens 262144
+eklow_running 1
+eklow_waiting 0
+eklow_kv_usage_ratio 0.05
+eklow_busy_seconds_total 12.5
+eklow_prompt_tokens_total 5000
+eklow_cached_prompt_tokens_total 4000
+eklow_prefill_tokens_total 1000
+eklow_decode_tokens_total 800
+eklow_prefill_sequence_seconds_total 2.5
+eklow_decode_sequence_seconds_total 16
+eklow_first_token_seconds_total 3
+eklow_first_tokens_total 10

@@ -1,0 +1,24 @@
+# HELP unholy_info Served model.
+# TYPE unholy_info gauge
+unholy_info{model="glm5.3-flash"} 1
+unholy_slots 8
+unholy_context_tokens 786432
+unholy_running 6
+unholy_waiting 1
+unholy_kv_usage_ratio 0.42
+unholy_steps_total 7042
+unholy_busy_seconds_total 674.027
+unholy_prompt_tokens_total 1401188
+unholy_cached_prompt_tokens_total 1166592
+unholy_prefill_tokens_total 230632
+unholy_decode_tokens_total 15601
+unholy_prefill_sequence_seconds_total 120.5
+unholy_decode_sequence_seconds_total 1560.1
+unholy_first_token_seconds_total 240.5
+unholy_first_tokens_total 197
+unholy_spec_drafted_total 7720
+unholy_spec_accepted_total 6588
+unholy_http_requests_total 197
+unholy_http_errors_total 0
+unholy_free_pages 3509
+unholy_total_pages 4096
