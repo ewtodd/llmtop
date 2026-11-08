@@ -19,7 +19,7 @@ and 200x50.
 - **Hosts and GPUs** (node_exporter): CPU, memory, load, and per GPU the busy
   share, VRAM (GTT for an iGPU), temperatures, power, fan and clock.
 - **Callers**: maitred's virtual keys with live requests, 10-minute counts,
-  failures, tokens, cache share and median time to first byte.
+  failures, tokens, cache share and median time to first token.
 - **Feed**: the newest requests, with a live elapsed counter for streams.
 
 A source that fails shows its error inline and keeps its last good data, dimmed,

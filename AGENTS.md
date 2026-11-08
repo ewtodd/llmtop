@@ -37,9 +37,11 @@ Two properties shape the design:
 
 - `cmd/llmtop/` - the binary (flags, `--dump`, `--demo`).
 - `internal/prom/` - Prometheus text parser.
-- `internal/source/` - maitred, engine and node_exporter clients and the poller.
-- `internal/rates/` - counter windows, per-stream and aggregate rates.
-- `internal/ui/` - the Bubble Tea program, layout and theme.
+- `internal/model/` - plain data types: normalized engine readings, node scrapes, maitred's `/status`.
+- `internal/source/` - maitred, engine and node_exporter clients, kind detection, discovery.
+- `internal/rates/` - counter windows, per-stream and aggregate rates, host CPU and power.
+- `internal/state/` - folds source messages into the `Snapshot` the UI renders and `--dump` prints.
+- `internal/ui/` - the Bubble Tea program, layout, theme and `--demo` data.
 - `testdata/` - recorded and synthetic endpoint bodies.
 
 ## Nix layout

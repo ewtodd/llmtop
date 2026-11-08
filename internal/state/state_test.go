@@ -58,7 +58,7 @@ func TestSnapshotFromStatusFixture(t *testing.T) {
 		t.Fatalf("callers %+v", snap.Callers)
 	}
 	c := snap.Callers[0]
-	if c.Name != "son-of-anton" || c.Live != 2 || c.Req10m != 3 || c.Fail10m != 1 || c.TTFBp50MS.V != 840 {
+	if c.Name != "son-of-anton" || c.Live != 2 || c.Req10m != 3 || c.Fail10m != 1 || c.TTFTp50MS.V != 840 {
 		t.Fatalf("%+v", c)
 	}
 	if !c.CachePct.OK || c.CachePct.V < 97 || c.CachePct.V > 98 || int(c.LastAgoSec.V*10) != 196 {
@@ -74,7 +74,7 @@ func TestSnapshotFromStatusFixture(t *testing.T) {
 	if g := snap.Feed[1]; g.In != 12000 || g.Out != 300 || int(g.CachePct.V) != 91 || g.DurationMS.V != 9000 {
 		t.Fatalf("%+v", g)
 	}
-	if h := snap.Feed[2]; h.Error != "model_not_found" || h.Status != 404 || h.TTFBms.OK {
+	if h := snap.Feed[2]; h.Error != "model_not_found" || h.Status != 404 || h.TTFTms.OK {
 		t.Fatalf("%+v", h)
 	}
 }

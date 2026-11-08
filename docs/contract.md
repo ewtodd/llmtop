@@ -110,7 +110,8 @@ milliseconds.
       "path": "chat/completions",
       "status": 200,
       "headers_ms": 12,
-      "first_chunk_ms": 840,
+      "first_chunk_ms": 3,
+      "first_token_ms": 840,
       "duration_ms": null,
       "done": false,
       "error": "",
@@ -124,8 +125,9 @@ Field rules:
 
 - `upstreams`: every configured upstream, in config order. `host`: the `host` of the first mode that
   lists the upstream, else `null`. `hosted`: true when the upstream has `api_key_env` (a hosted API, not a
-  LAN engine). `serving`/`reason`: the probe snapshot's verdict for that upstream (`reason` empty when
-  serving). `in_flight`: requests maitred currently has open to it (the existing activity counter).
+  LAN engine). `serving`/`reason`: the cached probe's verdict for that upstream (`reason` empty when
+  serving); a hosted upstream is not probed by `/status` and reports `serving: null`, `reason: ""`.
+  Config order is the JSON file's, which is alphabetical when Nix writes it. `in_flight`: requests maitred currently has open to it (the existing activity counter).
   `slots`: the configured value or `null`. `models`: the configured models on that upstream.
 - `modes`: config order; `serving` is true when every upstream of the mode is serving.
 - `keys`: every configured key, config order, counted since maitred started. `failures`: requests that
@@ -139,7 +141,11 @@ Field rules:
     `upstream` is `""`.
   - `status`: the HTTP status sent to the client (0 until known).
   - `headers_ms`: request arrival → upstream response headers (null if never reached).
-  - `first_chunk_ms`: arrival → first body chunk relayed to the client (null until it happens).
+  - `first_chunk_ms`: arrival → first body chunk relayed to the client (null until it happens). Servers send
+    an empty role chunk as soon as they accept a stream, so this is not the time to the first token.
+  - `first_token_ms`: arrival → first relayed chunk carrying generated output (a non-empty `content`,
+    `reasoning_content`, `reasoning`, `text` or Responses `delta` string, or a non-empty `tool_calls`
+    array), found by scanning chunks until it appears (null until then). llmtop's caller TTFT.
   - `duration_ms`: arrival → end of the relayed body (null while streaming).
   - `done`: the response is over (body ended, failed, or the client went away).
   - `error`: empty on success; `"client closed"` when the client dropped the body early; the relay

@@ -339,7 +339,7 @@ func (v *view) callerLines() []string {
 	cols := []struct {
 		title string
 		w     int
-	}{{"live", 4}, {"req/10m", 7}, {"fail/10m", 8}, {"in-tok", 7}, {"out-tok", 7}, {"cache%", 6}, {"ttfb p50", 8}, {"last", 6}}
+	}{{"live", 4}, {"req/10m", 7}, {"fail/10m", 8}, {"in-tok", 7}, {"out-tok", 7}, {"cache%", 6}, {"ttft p50", 8}, {"last", 6}}
 	head := padRight("key", nameW)
 	for _, c := range cols {
 		head += gap + padLeft(c.title, c.w)
@@ -363,7 +363,7 @@ func (v *view) callerLines() []string {
 		line += cell(3, tokens(float64(c.PromptTokens)))
 		line += cell(4, tokens(float64(c.OutTokens)))
 		line += cell(5, optText(c.CachePct, func(x float64) string { return pct(x) }))
-		line += cell(6, optText(c.TTFBp50MS, ms))
+		line += cell(6, optText(c.TTFTp50MS, ms))
 		line += cell(7, optText(c.LastAgoSec, ago))
 		out = append(out, line)
 	}
@@ -389,7 +389,7 @@ func (v *view) feedLines(rows int) []string {
 	}
 	keyW, routeW = min(keyW, 14), min(routeW, 34)
 	head := fmt.Sprintf("%-8s  %s  %s  %s  %s  %s  %s", "time", padRight("key", keyW), padRight("requested -> served", routeW),
-		"st ", padLeft("ttfb", 6), padLeft("dur", 6), "tokens in -> out")
+		"st ", padLeft("ttft", 6), padLeft("dur", 6), "tokens in -> out")
 	out := []string{th.Mut.Render(head)}
 	for _, f := range v.snap.Feed {
 		if len(out) >= rows {
@@ -432,9 +432,9 @@ func (v *view) feedLine(f state.FeedView, keyW, routeW int) string {
 	case f.ElapsedMS.OK:
 		dur = padLeft(th.Dec.Render("▸"+ms(f.ElapsedMS.V)), 6) // still streaming
 	}
-	ttfb := th.Mut.Render(padLeft("-", 6))
-	if f.TTFBms.OK {
-		ttfb = padLeft(ms(f.TTFBms.V), 6)
+	ttft := th.Mut.Render(padLeft("-", 6))
+	if f.TTFTms.OK {
+		ttft = padLeft(ms(f.TTFTms.V), 6)
 	}
 	tok := th.Mut.Render("-")
 	if f.HasUsage {
@@ -444,7 +444,7 @@ func (v *view) feedLine(f state.FeedView, keyW, routeW int) string {
 		}
 	}
 	line := th.Mut.Render(f.Start.Format("15:04:05")) + "  " + padRight(f.Key, keyW) + "  " + padRight(route(f), routeW) + "  " +
-		v.statusText(f) + "  " + ttfb + "  " + dur + "  " + tok
+		v.statusText(f) + "  " + ttft + "  " + dur + "  " + tok
 	if f.Error != "" {
 		line += "  " + th.Err.Render(f.Error)
 	}

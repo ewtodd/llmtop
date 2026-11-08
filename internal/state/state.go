@@ -384,7 +384,7 @@ func (s *State) callerViews(now time.Time) ([]CallerView, []FeedView) {
 		if k.Last != nil {
 			c.LastAgoSec = model.Some(max(nowM-*k.Last, 0))
 		}
-		var ttfb []float64
+		var ttft []float64
 		for _, r := range st.Recent {
 			if r.Key != k.Name || nowM-r.Start > 600 {
 				continue
@@ -393,13 +393,13 @@ func (s *State) callerViews(now time.Time) ([]CallerView, []FeedView) {
 			if r.Status >= 400 || (r.Error != "" && r.Error != "client closed") {
 				c.Fail10m++
 			}
-			if r.FirstChunk != nil {
-				ttfb = append(ttfb, float64(*r.FirstChunk))
+			if r.FirstToken != nil {
+				ttft = append(ttft, float64(*r.FirstToken))
 			}
 		}
-		if len(ttfb) > 0 {
-			slices.Sort(ttfb)
-			c.TTFBp50MS = model.Some(ttfb[len(ttfb)/2])
+		if len(ttft) > 0 {
+			slices.Sort(ttft)
+			c.TTFTp50MS = model.Some(ttft[len(ttft)/2])
 		}
 		callers = append(callers, c)
 	}
@@ -422,8 +422,8 @@ func (s *State) callerViews(now time.Time) ([]CallerView, []FeedView) {
 			Start: time.Unix(0, int64(r.Start*1e9)), Key: r.Key, Requested: shortModel(r.Requested),
 			Model: shortModel(r.Model), Upstream: r.Upstream, Status: r.Status, Done: r.Done, Error: r.Error,
 		}
-		if r.FirstChunk != nil {
-			f.TTFBms = model.Some(float64(*r.FirstChunk))
+		if r.FirstToken != nil {
+			f.TTFTms = model.Some(float64(*r.FirstToken))
 		}
 		if r.DurationMS != nil {
 			f.DurationMS = model.Some(float64(*r.DurationMS))

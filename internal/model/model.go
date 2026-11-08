@@ -190,6 +190,7 @@ type Request struct {
 	Status     int     `json:"status"`
 	HeadersMS  *int64  `json:"headers_ms"`
 	FirstChunk *int64  `json:"first_chunk_ms"`
+	FirstToken *int64  `json:"first_token_ms"`
 	DurationMS *int64  `json:"duration_ms"`
 	Done       bool    `json:"done"`
 	Error      string  `json:"error"`

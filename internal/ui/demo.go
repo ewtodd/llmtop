@@ -93,14 +93,14 @@ func DemoSnapshot(now time.Time) state.Snapshot {
 		snap.Callers = append(snap.Callers, state.CallerView{
 			Name: k.name, Live: k.live, Requests: k.req * 3, Req10m: k.req, Fail10m: k.fail,
 			PromptTokens: int64(k.in), OutTokens: int64(k.out), CachedTokens: int64(k.in * k.hit / 100),
-			CachePct: some(k.hit), TTFBp50MS: some(600 + float64(i)*350), LastAgoSec: some(float64(3 + i*i*90)),
+			CachePct: some(k.hit), TTFTp50MS: some(600 + float64(i)*350), LastAgoSec: some(float64(3 + i*i*90)),
 		})
 	}
 	names := []string{"claude-code", "son-of-anton", "claude-code", "home-assistant", "son-of-anton", "ci-bot", "claude-code", "son-of-anton"}
 	for i, n := range names {
 		f := state.FeedView{
 			Start: now.Add(-time.Duration(3+i*17) * time.Second), Key: n, Requested: "auto", Model: "glm5.3-flash", Upstream: "unholy-glm",
-			Status: 200, TTFBms: some(700 + float64(i*90)), DurationMS: some(9000 + float64(i*1300)), Done: true,
+			Status: 200, TTFTms: some(700 + float64(i*90)), DurationMS: some(9000 + float64(i*1300)), Done: true,
 			HasUsage: true, In: int64(12000 + i*3100), Out: int64(300 + i*70), CachePct: some(91),
 		}
 		switch i {
@@ -110,7 +110,7 @@ func DemoSnapshot(now time.Time) state.Snapshot {
 		case 3:
 			f.Requested, f.Model, f.Upstream = "sage-a1.5", "sage-a1.5", "eklow"
 		case 5:
-			f.Status, f.TTFBms, f.DurationMS, f.HasUsage, f.Error = 404, model.Opt{}, some(1), false, "model_not_found"
+			f.Status, f.TTFTms, f.DurationMS, f.HasUsage, f.Error = 404, model.Opt{}, some(1), false, "model_not_found"
 			f.Requested, f.Model, f.Upstream = "nope", "nope", ""
 		}
 		snap.Feed = append(snap.Feed, f)

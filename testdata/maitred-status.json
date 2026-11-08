@@ -36,13 +36,13 @@
   "recent": [
     {"id": 4711, "start": 1762589990.5, "key": "son-of-anton", "requested": "auto", "model": "unholy/glm5.3-flash",
      "upstream": "unholy-glm", "route": "tier", "path": "chat/completions", "status": 200, "headers_ms": 12,
-     "first_chunk_ms": 840, "duration_ms": null, "done": false, "error": "", "usage": null},
+     "first_chunk_ms": 3, "first_token_ms": 840, "duration_ms": null, "done": false, "error": "", "usage": null},
     {"id": 4710, "start": 1762589900.0, "key": "son-of-anton", "requested": "auto", "model": "unholy/glm5.3-flash",
      "upstream": "unholy-glm", "route": "", "path": "chat/completions", "status": 200, "headers_ms": 10,
-     "first_chunk_ms": 700, "duration_ms": 9000, "done": true, "error": "",
+     "first_chunk_ms": 2, "first_token_ms": 700, "duration_ms": 9000, "done": true, "error": "",
      "usage": {"prompt_tokens": 12000, "completion_tokens": 300, "cached_tokens": 11000}},
     {"id": 4709, "start": 1762589800.0, "key": "son-of-anton", "requested": "nope", "model": "nope",
      "upstream": "", "route": "", "path": "chat/completions", "status": 404, "headers_ms": null,
-     "first_chunk_ms": null, "duration_ms": 1, "done": true, "error": "model_not_found", "usage": null}
+     "first_chunk_ms": null, "first_token_ms": null, "duration_ms": 1, "done": true, "error": "model_not_found", "usage": null}
   ]
 }

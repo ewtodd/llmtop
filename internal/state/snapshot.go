@@ -129,7 +129,7 @@ type CallerView struct {
 	OutTokens    int64     `json:"completion_tokens"`
 	CachedTokens int64     `json:"cached_tokens"`
 	CachePct     model.Opt `json:"cache_pct"`
-	TTFBp50MS    model.Opt `json:"ttfb_p50_ms"`
+	TTFTp50MS    model.Opt `json:"ttft_p50_ms"`
 	LastAgoSec   model.Opt `json:"last_ago_seconds"`
 }
 
@@ -141,7 +141,7 @@ type FeedView struct {
 	Model      string    `json:"model"`
 	Upstream   string    `json:"upstream"`
 	Status     int       `json:"status"`
-	TTFBms     model.Opt `json:"ttfb_ms"`
+	TTFTms     model.Opt `json:"ttft_ms"`
 	DurationMS model.Opt `json:"duration_ms"`
 	ElapsedMS  model.Opt `json:"elapsed_ms"` // still streaming: age so far
 	Done       bool      `json:"done"`

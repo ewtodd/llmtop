@@ -115,7 +115,7 @@ func TestFullCardsAtPortraitSize(t *testing.T) {
 		"PREFILL", "DECODE", "K/V", "prefill tok/s", "decode tok/s", "total pf", "╭─ unholy-glm GLM-5.3-Flash", "10.0.0.5:8250 unholy",
 		"standby: unholy-ds4 (ds4), gufo-deepseek (dual)", "embed  up  live 0  (EmbeddingGemma 2)",
 		"son-of-anton  cpu", "busy", "vram 30.8/31.9G", "gtt", "/230W", "fan 3112", "3395MHz",
-		"req/10m", "fail/10m", "ttfb p50", "model_not_found", "auto -> glm5.3-flash")
+		"req/10m", "fail/10m", "ttft p50", "model_not_found", "auto -> glm5.3-flash")
 	if n := strings.Count(out, "╭─"); n != 2 {
 		t.Errorf("cards = %d", n)
 	}
