@@ -148,7 +148,9 @@ func parseOSCColor(payload string) string {
 // terminal's background (asked before Bubble Tea takes the terminal).
 func StartTheme(out io.Writer) *Theme {
 	bg := queryBackground(out)
-	dark := lipgloss.HasDarkBackground()
+	// lipgloss.HasDarkBackground would query the terminal again, and wait
+	// seconds when it does not answer; without an answer assume dark.
+	dark := true
 	if r, g, b, ok := parseHex(bg); ok {
 		dark = luminance(r, g, b) <= 127.5
 	}

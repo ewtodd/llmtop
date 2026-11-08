@@ -1,178 +1,76 @@
 # llmtop
 
-A btop/htop/nvtop-style terminal UI for self-hosted LLM inference. It answers
-two questions:
+A btop-style terminal monitor for a self-hosted LLM stack, in one window: the
+engines, the GPUs and hosts they run on, and who is calling. Point it at
+[maitred](https://github.com/ewtodd/maitred) and it finds the rest; there is no
+config file. It is built for a tall panel (about 115x55) and also works at 80x24
+and 200x50.
 
-1. **What are my engines doing right now?** Prompt (prefill) and generation
-   (decode) tokens/s per engine, plus the per-request average over recent
-   requests, running/waiting requests, KV-cache usage, TTFT and speculative
-   decode acceptance.
-2. **Who is hitting my API?** Requests grouped by Bifrost virtual key and
-   client application, with token rates, in-flight requests, failures and
-   latency.
+## What it shows
 
-Stack matches [son-of-anton](https://github.com/ewtodd/son-of-anton): Python +
-[Textual](https://textual.textualize.io/) + Rich, and the default theme is
-derived from the terminal the same way (see below).
+- **Engines.** One card per serving engine: the big numbers are the
+  **per-stream** prefill and decode tok/s (what one request experiences), with
+  meters scaled to the engine's recent peak and a K/V meter. Below: running,
+  waiting, maitred's live count, busy, TTFT, speculative acceptance, prefix-cache
+  hit rate, and the aggregate across streams. An engine that goes quiet keeps its
+  last speeds, dimmed, with `idle 4m`. Engines that are up but tiny collapse to
+  one line; the rest are listed as `standby`. When rows are short, cards become
+  two lines; from 200 columns two sit side by side.
+- **Hosts and GPUs** (node_exporter): CPU, memory, load, and per GPU the busy
+  share, VRAM (GTT for an iGPU), temperatures, power, fan and clock.
+- **Callers**: maitred's virtual keys with live requests, 10-minute counts,
+  failures, tokens, cache share and median time to first byte.
+- **Feed**: the newest requests, with a live elapsed counter for streams.
+
+A source that fails shows its error inline and keeps its last good data, dimmed,
+with its age.
+
+## Run
 
 ```
- ╭─ qwen3.8-27b (vLLM) ─────────────────────────────────────────────────────────╮
- │ █ █ █ █ ███     ███ ███    ███    PREFILL ██████████████████████░░   413     │
- │ █ █ █ █ █ █     █   █ █    █      DECODE  ████████████████████████  41.3     │
- │ ███ ███ ███     ███ █ █    ███    KV      ██████████░░░░░░░░░░░░░░   40%     │
- │   █   █ █ █       █ █ █      █    ttft 180ms   total pf 1.2k dec 124         │
- │   █   █ ███     ███ ███ █  ███    spec 61%   slots 2/2   streams 3 +1 wait   │
- │ prefill 1s each     decode 1s each                                           │
- ╰─────────────────────── qwen3.8-27b  ·  run 3 wait 1 ─────────────────────────╯
- Key         App           Req Live Fail Prefill Decode ...
- opencode    opencode       36    0    0     105     9.8
- soa         son-of-anton   32    1    0     159    22.4
- open-webui  open-webui     12    0    0      51    14.0
+nix run github:ewtodd/llmtop -- [flags]
 ```
 
-## The display
+```
+llmtop [--maitred URL] [--interval 1s] [--node-port 9100] [--no-hosts]
+       [--engine NAME=URL]... [--gpu-name HOST/PCI=LABEL]... [--dump] [--demo]
+```
 
-- One card per engine with **two large numbers: per-stream prefill first,
-  per-stream decode second** — the speed a single request sees. They use
-  tokens actually processed (vLLM prompt-cache hits are not work) over each
-  request's own processing time, re-sampled over `headline_interval_seconds`
-  and held in between.
-- The PREFILL / DECODE bars show the same per-stream metric live, the
-  KV-cache bar shows cache occupancy, and `total pf / dec` is the aggregate
-  across every concurrent request (`streams N` says how many). `ttft` also
-  rides the headline interval; `spec` and `slots` round out the card.
-- Colors follow the reference nvtop-style layout: decode cyan, prefill
-  magenta, KV green/yellow/red at the usual thresholds.
-- Everything is laid out as fixed-width lines, so narrow terminals truncate
-  cleanly instead of wrapping the layout.
+- `--maitred`: default `$LLMTOP_MAITRED`, else `http://10.0.0.2:4002`.
+- `--engine NAME=URL`: add an engine that is not behind maitred (server root, no
+  `/v1`); repeatable.
+- `--gpu-name son-of-anton/0000:c7:00.0="R9700 #0"`: label a GPU. The default is
+  the driver and short PCI address (`amdgpu c7:00.0`).
+- `--no-hosts`: do not read node_exporter.
+- `--dump`: poll every source twice, print the normalized snapshot as JSON, exit.
+- `--demo`: synthetic animated data, no network.
 
-## Theme
-
-Like son-of-anton, llmtop asks the terminal for its real background/foreground
-(OSC 10/11) before Textual starts, generates panel/surface/border/muted shades
-from that background (opencode's `generateSystem` ramp), and leaves the base
-background transparent so terminal transparency and backgrounds survive.
-Accents stay on the terminal's ANSI palette, and the Textual theme is
-`ansi-dark`/`ansi-light` by polarity. No answer from the terminal simply means
-no generated surfaces.
-
-`theme = "auto"` in the config is the default; set a Textual theme name
-(e.g. `theme = "textual-dark"`) to pin one. `LLMTOP_NO_COLOR_QUERY=1` skips
-the OSC query.
+Keys: `q` or `ctrl+c` quit, `p` pause polling, `r` poll now.
 
 ## Data sources
 
-| Panel | Source | Notes |
-| --- | --- | --- |
-| Engine tok/s, queues, KV, TTFT, spec decode | engine `/metrics` (Prometheus) | vLLM and llama.cpp/gufo counters; no proxy involved |
-| Active sessions | llama.cpp `/slots` | optional per engine (`slots = true`) |
-| Request origins (key, app, model, tokens, latency, status) | Bifrost `GET /api/logs` | needs admin basic-auth credentials |
+All three are polled independently with an 800 ms timeout. The exact endpoints
+and metric names are in [docs/contract.md](docs/contract.md).
 
-The tool degrades gracefully: without credentials the engines panel still
-works and the origins table explains what is missing.
+- maitred `GET /status`: engines, modes, keys and the request feed. An older
+  maitred without it falls back to `/v1/models` (model status only).
+- engine `GET /metrics`: the engine kind is detected from the metric names
+  (`unholy_`, `eklow_`, `radiance:`, `vllm:`, `llamacpp:`) on every scrape; with
+  no metrics, `/health` says up or down.
+- node_exporter `:9100/metrics` on each engine host, with the `drm` collector and
+  the `drm_card_device_info` textfile metric for busy and VRAM.
 
-Origins are grouped by virtual key plus client application. The key is the
-identity: give each consumer its own Bifrost virtual key and the key names
-the origin regardless of where its backend or browser happens to run.
-
-## Run it
-
-```console
-$ nix run github:ewtodd/llmtop
-$ nix run github:ewtodd/llmtop -- --demo   # synthetic data, no network
-$ nix run github:ewtodd/llmtop -- --dump   # poll once, print JSON, exit
-```
-
-For development:
-
-```console
-$ nix develop
-$ python -m llmtop --demo
-$ pytest
-```
-
-## Configuration
-
-`~/.config/llmtop/config.toml` (or `--config`, or `$LLMTOP_CONFIG`). The full
-annotated example is in [`config/llmtop.toml`](config/llmtop.toml); only the
-engines you list are shown, which is why embedding/titling backends are absent
-by default.
-
-```toml
-poll_interval = 1.5
-headline_interval_seconds = 3.0
-
-[gateway]
-url = "http://10.0.0.6:4002"
-username = "${BIFROST_ADMIN_USERNAME}"
-password = "${BIFROST_ADMIN_PASSWORD}"
-exclude_providers = [ "embed", "oracle" ]   # utility providers filtered out
-
-[[engines]]
-id = "vllm"
-name = "qwen3.8-27b (vLLM)"
-kind = "vllm"                 # vllm | llamacpp | openai
-url = "http://10.0.0.5:8100"
-provider = "vllm"             # Bifrost provider name, for cross-referencing
-
-[[engines]]
-id = "strix"
-name = "qwen3.8-flash-next (gufo)"
-kind = "llamacpp"
-url = "http://10.0.0.5:8050"
-provider = "strix"
-slots = true
-```
-
-`${VAR}` values expand from the environment or from `env_file`
-(`~/.config/llmtop/bifrost.env` by default, and `/run/agenix/bifrost-env` when
-present). To enable origins on e-desktop:
-
-```console
-$ ssh -t oracle sudo cat /run/agenix/bifrost-env > ~/.config/llmtop/bifrost.env
-$ chmod 600 ~/.config/llmtop/bifrost.env
-```
-
-## Keys
-
-`q` quit, `p` pause polling, `r` refresh now, `o` cycle origin sort
-(requests/tokens/latency/last), `c` clear the request feed.
-
-## Layout
+## Develop
 
 ```
-src/llmtop/
-  config.py       TOML loading, ${VAR} expansion, defaults
-  prometheus.py   Prometheus text exposition parser
-  engines.py      engine scrapers + rate/recent-request accounting
-  gateway.py      Bifrost /api/logs client
-  origins.py      request-log rows -> origin rows
-  palette.py      OSC 10/11 query + terminal-derived surface generation
-  render.py       big-number glyphs, meters, formatting
-  monitor.py      polls everything and produces a Snapshot
-  demo.py         synthetic monitor for --demo and tests
-  app.py          the Textual UI
-tools/            live verification scripts (rates, pty replay, screenshot)
-tests/            unit tests + Textual pilot tests
+nix develop      # go, gopls, gcc
+go test ./...
+nix build && nix flake check
 ```
-
-## Notes and limits
-
-- The origin identity is the Bifrost virtual key plus client application.
-  Give each consumer its own key; a shared key cannot be split back apart.
-- Network addresses are deliberately not shown: behind a browser or a backend
-  the TCP peer is the backend host (e.g. open-webui on oracle), not the human,
-  which is misleading for API accounting.
-- The request feed shows `processing` rows as they appear, so in-flight
-  requests are visible before they complete.
-
-## License
-
-MIT
 
 ## Credits
 
-- Card layout and the 5-row big-digit style follow
-  [juliantsu/llmtop](https://github.com/juliantsu/llmtop) (MIT).
-- The terminal palette (OSC query + generated surfaces) is ported from
-  son-of-anton (MIT), which in turn follows opencode's `generateSystem`.
+Card layout and big digits after [juliantsu/llmtop](https://github.com/juliantsu/llmtop)
+(MIT). The terminal-derived palette is from son-of-anton's TUI.
+
+MIT licensed.
