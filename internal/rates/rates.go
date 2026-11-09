@@ -26,7 +26,7 @@ const (
 type Stream struct {
 	Value  float64
 	OK     bool
-	Approx bool // aggregate over mean running, shown with a leading ~
+	Approx bool // aggregate over mean running: an estimate, not a per-stream figure
 	Held   bool // idle: the last active value, dimmed
 }
 

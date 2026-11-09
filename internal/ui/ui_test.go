@@ -190,7 +190,9 @@ func TestStaleAndIdleHints(t *testing.T) {
 	snap.Hosts[0].Modes, snap.Hosts[0].Switching = nil, true
 	checkView(t, "switching", PlainTheme(), snap, 115, 55, "son-of-anton: switching")
 	e.Prefill.Approx, e.Decode.Approx = true, true
-	checkView(t, "approx", PlainTheme(), snap, 115, 55, "decode tok/s ~")
+	if out := checkView(t, "approx", PlainTheme(), snap, 115, 55); strings.Contains(out, "~") {
+		t.Errorf("approx figures render without ~:\n%s", out)
+	}
 }
 
 func TestBigNumberAndFormats(t *testing.T) {

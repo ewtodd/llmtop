@@ -45,16 +45,12 @@ func (v *view) kvStyle(frac float64) lipgloss.Style {
 	return v.th.OK
 }
 
-// streamText is a per-stream figure for a meter: "250.0/s", "~12.0/s" or "-".
+// streamText is a per-stream figure for a meter: "250.0/s" or "-".
 func streamText(s state.StreamView) string {
 	if !s.Value.OK {
 		return "-"
 	}
-	t := fmt.Sprintf("%.1f/s", s.Value.V)
-	if s.Approx {
-		t = "~" + t
-	}
-	return t
+	return fmt.Sprintf("%.1f/s", s.Value.V)
 }
 
 func (v *view) streamMeter(label string, s state.StreamView, peak float64, st, base lipgloss.Style, width int) string {
@@ -169,9 +165,6 @@ func (v *view) bigValue(s state.StreamView, st lipgloss.Style, dim bool) [bigRow
 	style := st
 	if s.Value.OK {
 		text = headline(s.Value.V)
-		if s.Approx {
-			text = "~" + text
-		}
 	}
 	if !s.Value.OK || s.Held || dim {
 		style = v.th.Mut
@@ -253,9 +246,6 @@ func (v *view) card(e state.EngineView, cw int) []string {
 		lines = append(lines, row(padRight(left, 1+leftW-1)+strings.Repeat(" ", rightGap)+panel[i]))
 	}
 	labels := " " + padRight(s.pre.Render("prefill tok/s"), numW) + pad + padRight(s.dec.Render("decode tok/s"), numW)
-	if e.Decode.Approx || e.Prefill.Approx {
-		labels = " " + padRight(s.pre.Render("prefill tok/s ~"), numW) + pad + padRight(s.dec.Render("decode tok/s ~"), numW)
-	}
 	lines = append(lines, row(padRight(labels, leftW)+strings.Repeat(" ", rightGap)+panel[bigRows]))
 	lines = append(lines, row(" "+v.stats(e, s)))
 	lines = append(lines, row(" "+v.totals(e, s)))
@@ -321,9 +311,6 @@ func (v *view) compact(e state.EngineView, w int) []string {
 			return s.lab.Render("-")
 		}
 		t := fmt.Sprintf("%.1f", st.Value.V)
-		if st.Approx {
-			t = "~" + t
-		}
 		if st.Held || e.Stale {
 			style = v.th.Mut
 		}

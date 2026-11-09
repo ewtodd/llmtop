@@ -28,7 +28,6 @@ var glyphs = map[rune][bigRows]string{
 	'.': {"  ", "  ", "  ", "  ", "█ "},
 	'-': {"   ", "   ", "███", "   ", "   "},
 	' ': {"   ", "   ", "   ", "   ", "   "},
-	'~': {"  ", "  ", "~ ", "  ", "  "},
 }
 
 // headline formats a tok/s figure for the big digits: one decimal below 100,
